@@ -1,0 +1,94 @@
+import packageRepository from '../../repositories/admin/package.repository';
+import { AppError } from '../../middlewares/error/error.middleware';
+import { CreatePackageInput, UpdatePackageInput } from '../../validators/admin/package.validator';
+
+export class PackageService {
+  async createPackage(data: CreatePackageInput) {
+    const pkg = await packageRepository.createPackage(data);
+    
+    return {
+      package: {
+        ...pkg,
+        maxFileSize: pkg.maxFileSize.toString(),
+        totalFileLimit: pkg.totalFileLimit.toString(),
+      },
+    };
+  }
+
+  async getAllPackages() {
+    const packages = await packageRepository.getAllPackages();
+    
+    return {
+      packages: packages.map(pkg => ({
+        ...pkg,
+        maxFileSize: pkg.maxFileSize.toString(),
+        totalFileLimit: pkg.totalFileLimit.toString(),
+      })),
+    };
+  }
+
+  async getPackageById(id: number) {
+    const pkg = await packageRepository.getPackageById(id);
+    
+    if (!pkg) {
+      throw new AppError('Package not found', 404, 'PACKAGE_NOT_FOUND');
+    }
+
+    return {
+      package: {
+        ...pkg,
+        maxFileSize: pkg.maxFileSize.toString(),
+        totalFileLimit: pkg.totalFileLimit.toString(),
+      },
+    };
+  }
+
+  async updatePackage(id: number, data: UpdatePackageInput) {
+    const existing = await packageRepository.getPackageById(id);
+    
+    if (!existing) {
+      throw new AppError('Package not found', 404, 'PACKAGE_NOT_FOUND');
+    }
+
+    const pkg = await packageRepository.updatePackage(id, data);
+    
+    return {
+      package: {
+        ...pkg,
+        maxFileSize: pkg.maxFileSize.toString(),
+        totalFileLimit: pkg.totalFileLimit.toString(),
+      },
+    };
+  }
+
+  async deletePackage(id: number) {
+    const pkg = await packageRepository.getPackageWithSubscriptionCount(id);
+    
+    if (!pkg) {
+      throw new AppError('Package not found', 404, 'PACKAGE_NOT_FOUND');
+    }
+
+    if (pkg._count.subscriptions > 0) {
+      throw new AppError(
+        'Cannot delete package with active subscriptions',
+        400,
+        'PACKAGE_HAS_SUBSCRIPTIONS'
+      );
+    }
+
+    await packageRepository.deletePackage(id);
+    
+    return { message: 'Package deleted successfully' };
+  }
+
+  async togglePackageStatus(id: number) {
+    const pkg = await packageRepository.togglePackageStatus(id);
+    
+    return {
+      isActive: pkg.isActive,
+      message: `Package ${pkg.isActive ? 'activated' : 'deactivated'} successfully`,
+    };
+  }
+}
+
+export default new PackageService();
