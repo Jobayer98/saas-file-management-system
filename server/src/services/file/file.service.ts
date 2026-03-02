@@ -1,0 +1,661 @@
+import fileRepository from '@/repositories/file/file.repository';
+import folderRepository from '@/repositories/folder/folder.repository';
+import subscriptionRepository from '@/repositories/subscription/subscription.repository';
+import redis from '@/lib/redis';
+import { AppError } from '@/middlewares/error/error.middleware';
+import path from 'path';
+import fs from 'fs';
+import {
+  InitChunkUploadInput,
+  UploadUrlInput,
+  RenameFileInput,
+  MoveFileInput,
+  CopyFileInput,
+  ShareFileInput,
+  BulkDeleteFilesInput,
+  BulkMoveFilesInput,
+  BulkFavoriteFilesInput,
+} from '@/validators/file/file.validator';
+
+export class FileService {
+  // Single File Upload
+  async uploadFile(userId: string, file: Express.Multer.File, folderId?: string) {
+    // Check subscription limits
+    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    if (!subscription) {
+      throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
+    }
+
+    // Check file size limit
+    if (BigInt(file.size) > subscription.package.maxFileSize) {
+      throw new AppError('File size exceeds limit', 403, 'FILE_SIZE_EXCEEDED');
+    }
+
+    // Check total storage limit
+    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const newTotalSize = Number(usage.totalSize) + file.size;
+    if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
+      throw new AppError('Storage limit exceeded', 403, 'STORAGE_LIMIT_EXCEEDED');
+    }
+
+    // Check folder exists and files per folder limit
+    if (folderId) {
+      const folder = await folderRepository.getFolderById(folderId, userId);
+      if (!folder) {
+        throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
+      }
+
+      const filesInFolder = await fileRepository.countFilesInFolder(folderId);
+      if (filesInFolder >= subscription.package.filesPerFolder) {
+        throw new AppError('Files per folder limit reached', 403, 'FILES_PER_FOLDER_LIMIT');
+      }
+    }
+
+    // Check file type
+    const allowedTypes = subscription.package.allowedFileTypes;
+    if (!allowedTypes.includes('*') && !allowedTypes.includes(file.mimetype)) {
+      throw new AppError('File type not allowed', 403, 'FILE_TYPE_NOT_ALLOWED');
+    }
+
+    // Create file record
+    const uploadedFile = await fileRepository.createFile({
+      name: file.filename,
+      originalName: file.originalname,
+      mimeType: file.mimetype,
+      size: BigInt(file.size),
+      path: file.path,
+      userId,
+      folderId: folderId || null,
+    });
+
+    return {
+      file: {
+        ...uploadedFile,
+        size: uploadedFile.size.toString(),
+      },
+    };
+  }
+
+  // Multi File Upload
+  async uploadMultipleFiles(userId: string, files: Express.Multer.File[], folderId?: string) {
+    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    if (!subscription) {
+      throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
+    }
+
+    const uploadedFiles: any[] = [];
+    const failedFiles: any[] = [];
+
+    for (const file of files) {
+      try {
+        const result = await this.uploadFile(userId, file, folderId);
+        uploadedFiles.push(result.file);
+      } catch (error: any) {
+        failedFiles.push({
+          filename: file.originalname,
+          error: error.message,
+        });
+      }
+    }
+
+    return {
+      files: uploadedFiles,
+      failed: failedFiles,
+    };
+  }
+
+  // Initialize Chunked Upload
+  async initChunkUpload(userId: string, data: InitChunkUploadInput) {
+    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    if (!subscription) {
+      throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
+    }
+
+    // Check file size limit
+    if (BigInt(data.fileSize) > subscription.package.maxFileSize) {
+      throw new AppError('File size exceeds limit', 403, 'FILE_SIZE_EXCEEDED');
+    }
+
+    // Check storage limit
+    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const newTotalSize = Number(usage.totalSize) + data.fileSize;
+    if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
+      throw new AppError('Storage limit exceeded', 403, 'STORAGE_LIMIT_EXCEEDED');
+    }
+
+    // Generate upload ID
+    const uploadId = `upload_${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+
+    // Store upload metadata in Redis
+    await redis.setex(
+      `upload:${uploadId}`,
+      3600, // 1 hour expiry
+      JSON.stringify({
+        userId,
+        fileName: data.fileName,
+        fileSize: data.fileSize,
+        folderId: data.folderId,
+        fileType: data.fileType,
+        totalChunks: data.totalChunks,
+        receivedChunks: 0,
+        chunks: [],
+      })
+    );
+
+    return { uploadId };
+  }
+
+  // Upload Chunk
+  async uploadChunk(uploadId: string, chunkIndex: number, chunkFile: Express.Multer.File) {
+    const uploadData = await redis.get(`upload:${uploadId}`);
+    if (!uploadData) {
+      throw new AppError('Upload session not found or expired', 404, 'UPLOAD_NOT_FOUND');
+    }
+
+    const metadata = JSON.parse(uploadData);
+    metadata.chunks[chunkIndex] = chunkFile.path;
+    metadata.receivedChunks += 1;
+
+    await redis.setex(`upload:${uploadId}`, 3600, JSON.stringify(metadata));
+
+    return { received: metadata.receivedChunks, total: metadata.totalChunks };
+  }
+
+  // Complete Chunked Upload
+  async completeChunkUpload(userId: string, uploadId: string) {
+    const uploadData = await redis.get(`upload:${uploadId}`);
+    if (!uploadData) {
+      throw new AppError('Upload session not found or expired', 404, 'UPLOAD_NOT_FOUND');
+    }
+
+    const metadata = JSON.parse(uploadData);
+
+    if (metadata.receivedChunks !== metadata.totalChunks) {
+      throw new AppError('Not all chunks received', 400, 'INCOMPLETE_UPLOAD');
+    }
+
+    // Merge chunks
+    const uploadDir = path.join(process.cwd(), 'uploads', 'temp');
+    const finalPath = path.join(uploadDir, `${uploadId}_${metadata.fileName}`);
+    const writeStream = fs.createWriteStream(finalPath);
+
+    for (let i = 0; i < metadata.totalChunks; i++) {
+      const chunkPath = metadata.chunks[i];
+      if (!chunkPath || !fs.existsSync(chunkPath)) {
+        throw new AppError(`Chunk ${i} not found`, 400, 'CHUNK_MISSING');
+      }
+      const chunkData = fs.readFileSync(chunkPath);
+      writeStream.write(chunkData);
+      fs.unlinkSync(chunkPath); // Delete chunk after merging
+    }
+
+    writeStream.end();
+
+    // Create file record
+    const file = await fileRepository.createFile({
+      name: path.basename(finalPath),
+      originalName: metadata.fileName,
+      mimeType: metadata.fileType,
+      size: BigInt(metadata.fileSize),
+      path: finalPath,
+      userId,
+      folderId: metadata.folderId || null,
+    });
+
+    // Clean up Redis
+    await redis.del(`upload:${uploadId}`);
+
+    return {
+      file: {
+        ...file,
+        size: file.size.toString(),
+      },
+    };
+  }
+
+  // Generate Upload URL (for direct S3 upload - placeholder)
+  async generateUploadUrl(userId: string, _data: UploadUrlInput) {
+    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    if (!subscription) {
+      throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
+    }
+
+    // This is a placeholder - in production, you'd generate a signed S3 URL
+    const fileId = `file_${userId}_${Date.now()}`;
+    const uploadUrl = `${process.env.FRONTEND_URL}/upload/${fileId}`;
+
+    return {
+      uploadUrl,
+      fileId,
+    };
+  }
+
+  // Cancel Upload
+  async cancelUpload(uploadId: string) {
+    const uploadData = await redis.get(`upload:${uploadId}`);
+    if (!uploadData) {
+      throw new AppError('Upload session not found', 404, 'UPLOAD_NOT_FOUND');
+    }
+
+    const metadata = JSON.parse(uploadData);
+
+    // Delete uploaded chunks
+    for (const chunkPath of metadata.chunks) {
+      if (chunkPath && fs.existsSync(chunkPath)) {
+        fs.unlinkSync(chunkPath);
+      }
+    }
+
+    // Clean up Redis
+    await redis.del(`upload:${uploadId}`);
+
+    return { message: 'Upload cancelled successfully' };
+  }
+
+  // Get Files
+  async getFiles(userId: string, folderId?: string, page: number = 1, limit: number = 10) {
+    const { files, total } = await fileRepository.getFilesByFolder(
+      folderId || null,
+      userId,
+      page,
+      limit
+    );
+
+    return {
+      files: files.map(file => ({
+        ...file,
+        size: file.size.toString(),
+      })),
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  // Get File by ID
+  async getFileById(userId: string, fileId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    return {
+      file: {
+        ...file,
+        size: file.size.toString(),
+      },
+      metadata: {
+        createdAt: file.createdAt,
+        updatedAt: file.updatedAt,
+        mimeType: file.mimeType,
+        originalName: file.originalName,
+      },
+    };
+  }
+
+  // Download File
+  async getDownloadUrl(userId: string, fileId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    // In production, generate signed URL for S3
+    const downloadUrl = `/files/download/${fileId}`;
+
+    return { downloadUrl, file: file.path };
+  }
+
+  // Get Preview URL
+  async getPreviewUrl(userId: string, fileId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const previewUrl = `/files/preview/${fileId}`;
+    const type = file.mimeType.startsWith('image/') ? 'image' : 
+                 file.mimeType.startsWith('video/') ? 'video' :
+                 file.mimeType === 'application/pdf' ? 'pdf' : 'other';
+
+    return { previewUrl, type };
+  }
+
+  // Get Thumbnail URL
+  async getThumbnailUrl(userId: string, fileId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const thumbnailUrl = file.thumbnailPath || `/files/thumbnail/${fileId}`;
+
+    return { thumbnailUrl };
+  }
+
+  // Rename File
+  async renameFile(userId: string, fileId: string, data: RenameFileInput) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const updatedFile = await fileRepository.updateFile(fileId, {
+      originalName: data.newName,
+    });
+
+    return {
+      file: {
+        ...updatedFile,
+        size: updatedFile.size.toString(),
+      },
+    };
+  }
+
+  // Delete File
+  async deleteFile(userId: string, fileId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    await fileRepository.softDeleteFile(fileId);
+
+    return { message: 'File moved to trash' };
+  }
+
+  // Move File
+  async moveFile(userId: string, fileId: string, data: MoveFileInput) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    if (data.targetFolderId) {
+      const folder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      if (!folder) {
+        throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
+      }
+
+      // Check files per folder limit
+      const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+      if (subscription) {
+        const filesInFolder = await fileRepository.countFilesInFolder(data.targetFolderId);
+        if (filesInFolder >= subscription.package.filesPerFolder) {
+          throw new AppError('Files per folder limit reached', 403, 'FILES_PER_FOLDER_LIMIT');
+        }
+      }
+    }
+
+    const movedFile = await fileRepository.updateFile(fileId, {
+      folderId: data.targetFolderId,
+    });
+
+    return {
+      file: {
+        ...movedFile,
+        size: movedFile.size.toString(),
+      },
+    };
+  }
+
+  // Copy File
+  async copyFile(userId: string, fileId: string, data: CopyFileInput) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    // Check subscription limits
+    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    if (!subscription) {
+      throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
+    }
+
+    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const newTotalSize = Number(usage.totalSize) + Number(file.size);
+    if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
+      throw new AppError('Storage limit exceeded', 403, 'STORAGE_LIMIT_EXCEEDED');
+    }
+
+    if (data.targetFolderId) {
+      const folder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      if (!folder) {
+        throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
+      }
+    }
+
+    // Copy file on disk
+    const copyPath = file.path.replace(path.basename(file.path), `copy_${path.basename(file.path)}`);
+    fs.copyFileSync(file.path, copyPath);
+
+    // Create new file record
+    const copiedFile = await fileRepository.createFile({
+      name: `copy_${file.name}`,
+      originalName: `Copy of ${file.originalName}`,
+      mimeType: file.mimeType,
+      size: file.size,
+      path: copyPath,
+      userId,
+      folderId: data.targetFolderId || null,
+    });
+
+    return {
+      file: {
+        ...copiedFile,
+        size: copiedFile.size.toString(),
+      },
+    };
+  }
+
+  // Toggle Favorite
+  async toggleFavorite(userId: string, fileId: string, isFavorite: boolean) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    await fileRepository.toggleFavorite(fileId, isFavorite);
+
+    return { isFavorite };
+  }
+
+  // Share File (placeholder - actual sharing in Phase 6)
+  async shareFile(userId: string, fileId: string, data: ShareFileInput) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    // Generate share token
+    const shareToken = Math.random().toString(36).substring(2, 15);
+    const shareLink = `${process.env.FRONTEND_URL}/share/${shareToken}`;
+
+    // Store in Redis temporarily (will be moved to database in Phase 6)
+    const expiresIn = data.expiresIn || 7 * 24 * 60 * 60; // 7 days default
+    await redis.setex(
+      `share:${shareToken}`,
+      expiresIn,
+      JSON.stringify({
+        fileId,
+        userId,
+        permissions: data.permissions,
+      })
+    );
+
+    return { shareLink, token: shareToken };
+  }
+
+  // Delete Share
+  async deleteShare(userId: string, fileId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    // In Phase 6, this will delete from database
+    return { message: 'Share link deleted' };
+  }
+
+  // Bulk Delete Files
+  async bulkDeleteFiles(userId: string, data: BulkDeleteFilesInput) {
+    const files = await fileRepository.getFilesByIds(data.fileIds, userId);
+    if (files.length === 0) {
+      throw new AppError('No files found', 404, 'FILES_NOT_FOUND');
+    }
+
+    const deletedCount = await fileRepository.bulkSoftDelete(data.fileIds);
+
+    return {
+      message: 'Files moved to trash',
+      deleted: data.fileIds,
+      count: deletedCount,
+    };
+  }
+
+  // Bulk Move Files
+  async bulkMoveFiles(userId: string, data: BulkMoveFilesInput) {
+    const files = await fileRepository.getFilesByIds(data.fileIds, userId);
+    if (files.length === 0) {
+      throw new AppError('No files found', 404, 'FILES_NOT_FOUND');
+    }
+
+    if (data.targetFolderId) {
+      const folder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      if (!folder) {
+        throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
+      }
+    }
+
+    const movedCount = await fileRepository.bulkUpdateFolder(data.fileIds, data.targetFolderId);
+
+    return {
+      message: 'Files moved successfully',
+      moved: data.fileIds,
+      count: movedCount,
+    };
+  }
+
+  // Bulk Favorite Files
+  async bulkFavoriteFiles(userId: string, data: BulkFavoriteFilesInput) {
+    const files = await fileRepository.getFilesByIds(data.fileIds, userId);
+    if (files.length === 0) {
+      throw new AppError('No files found', 404, 'FILES_NOT_FOUND');
+    }
+
+    const count = await fileRepository.bulkToggleFavorite(data.fileIds, true);
+
+    return {
+      message: 'Files marked as favorite',
+      count,
+    };
+  }
+
+  // File Versions
+  async getFileVersions(userId: string, fileId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const versions = await fileRepository.getFileVersions(fileId);
+
+    return {
+      versions: versions.map(v => ({
+        ...v,
+        size: v.size.toString(),
+      })),
+    };
+  }
+
+  async createFileVersion(userId: string, fileId: string, newFile: Express.Multer.File) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const latestVersion = await fileRepository.getLatestVersionNumber(fileId);
+    const newVersion = latestVersion + 1;
+
+    const version = await fileRepository.createFileVersion({
+      fileId,
+      version: newVersion,
+      path: newFile.path,
+      size: BigInt(newFile.size),
+    });
+
+    return {
+      version: {
+        ...version,
+        size: version.size.toString(),
+      },
+    };
+  }
+
+  async restoreFileVersion(userId: string, fileId: string, versionId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const version = await fileRepository.getFileVersionById(versionId);
+    if (!version || version.fileId !== fileId) {
+      throw new AppError('Version not found', 404, 'VERSION_NOT_FOUND');
+    }
+
+    // Copy version file to current file
+    fs.copyFileSync(version.path, file.path);
+
+    await fileRepository.updateFile(fileId, {
+      size: version.size,
+      updatedAt: new Date(),
+    });
+
+    return {
+      file: {
+        ...file,
+        size: version.size.toString(),
+      },
+    };
+  }
+
+  async deleteFileVersion(userId: string, fileId: string, versionId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const version = await fileRepository.getFileVersionById(versionId);
+    if (!version || version.fileId !== fileId) {
+      throw new AppError('Version not found', 404, 'VERSION_NOT_FOUND');
+    }
+
+    // Delete file from disk
+    if (fs.existsSync(version.path)) {
+      fs.unlinkSync(version.path);
+    }
+
+    await fileRepository.deleteFileVersion(versionId);
+
+    return { message: 'Version deleted successfully' };
+  }
+
+  async getVersionDownloadUrl(userId: string, fileId: string, versionId: string) {
+    const file = await fileRepository.getFileById(fileId, userId);
+    if (!file) {
+      throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
+    }
+
+    const version = await fileRepository.getFileVersionById(versionId);
+    if (!version || version.fileId !== fileId) {
+      throw new AppError('Version not found', 404, 'VERSION_NOT_FOUND');
+    }
+
+    const downloadUrl = `/files/versions/${versionId}/download`;
+
+    return { downloadUrl, file: version.path };
+  }
+}
+
+export default new FileService();
