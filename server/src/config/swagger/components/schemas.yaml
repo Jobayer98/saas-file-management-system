@@ -1,0 +1,269 @@
+components:
+  schemas:
+    # Common Schemas
+    Error:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: "ERROR_CODE"
+            message:
+              type: string
+              example: "Error message"
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation successful"
+        data:
+          type: object
+
+    PaginatedResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+            total:
+              type: integer
+              example: 100
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 10
+            totalPages:
+              type: integer
+              example: 10
+
+    # User Schemas
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: "user@example.com"
+        name:
+          type: string
+          example: "John Doe"
+        isAdmin:
+          type: boolean
+          example: false
+        isEmailVerified:
+          type: boolean
+          example: true
+        isSuspended:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Package Schemas
+    Package:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: "Basic"
+        description:
+          type: string
+          example: "Perfect for small teams"
+        maxFolders:
+          type: integer
+          example: 50
+        maxNestingLevel:
+          type: integer
+          example: 5
+        allowedFileTypes:
+          type: array
+          items:
+            type: string
+          example: ["image/jpeg", "image/png", "application/pdf"]
+        maxFileSize:
+          type: string
+          example: "52428800"
+        totalFileLimit:
+          type: string
+          example: "1073741824"
+        filesPerFolder:
+          type: integer
+          example: 100
+        price:
+          type: number
+          format: float
+          example: 9.99
+        isActive:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Subscription Schemas
+    Subscription:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        packageId:
+          type: integer
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Folder Schemas
+    Folder:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Documents"
+        userId:
+          type: string
+          format: uuid
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        path:
+          type: string
+          example: "parent-id/child-id"
+        level:
+          type: integer
+          example: 0
+        isDeleted:
+          type: boolean
+          example: false
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # File Schemas
+    File:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "document.pdf"
+        originalName:
+          type: string
+          example: "My Document.pdf"
+        mimeType:
+          type: string
+          example: "application/pdf"
+        size:
+          type: string
+          example: "1024000"
+        path:
+          type: string
+          example: "/uploads/temp/file.pdf"
+        thumbnailPath:
+          type: string
+          nullable: true
+        userId:
+          type: string
+          format: uuid
+        folderId:
+          type: string
+          format: uuid
+          nullable: true
+        isFavorite:
+          type: boolean
+          example: false
+        isDeleted:
+          type: boolean
+          example: false
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FileVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fileId:
+          type: string
+          format: uuid
+        version:
+          type: integer
+          example: 1
+        path:
+          type: string
+        size:
+          type: string
+          example: "1024000"
+        createdAt:
+          type: string
+          format: date-time

@@ -1,0 +1,270 @@
+paths:
+  /admin/users:
+    get:
+      tags:
+        - Admin - Users
+      summary: Get all users with pagination
+      description: Retrieve a paginated list of all users with optional search
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Number of users per page
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by name or email
+      responses:
+        "200":
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Users retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      users:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/User"
+                      total:
+                        type: integer
+                        example: 150
+                      page:
+                        type: integer
+                        example: 1
+                      totalPages:
+                        type: integer
+                        example: 8
+        "401":
+          description: Unauthorized - Invalid or missing token
+        "403":
+          description: Forbidden - Admin access required
+
+  /admin/users/{id}:
+    get:
+      tags:
+        - Admin - Users
+      summary: Get user details by ID
+      description: Retrieve detailed information about a specific user including subscription and usage
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        "200":
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User details retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+                      subscription:
+                        $ref: "#/components/schemas/Subscription"
+                      usage:
+                        type: object
+                        properties:
+                          fileCount:
+                            type: integer
+                            example: 45
+                          folderCount:
+                            type: integer
+                            example: 12
+                          totalSize:
+                            type: integer
+                            example: 524288000
+                          percentUsed:
+                            type: number
+                            format: float
+                            example: 48.5
+        "401":
+          description: Unauthorized - Invalid or missing token
+        "403":
+          description: Forbidden - Admin access required
+        "404":
+          description: User not found
+
+  /admin/users/{id}/role:
+    put:
+      tags:
+        - Admin - Users
+      summary: Update user role
+      description: Change user's admin status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - isAdmin
+              properties:
+                isAdmin:
+                  type: boolean
+                  example: true
+                  description: Set to true to make user admin, false to remove admin privileges
+      responses:
+        "200":
+          description: User role updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User role updated successfully
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: "#/components/schemas/User"
+        "400":
+          description: Bad request - Invalid input
+        "401":
+          description: Unauthorized - Invalid or missing token
+        "403":
+          description: Forbidden - Admin access required
+        "404":
+          description: User not found
+
+  /admin/users/{id}/suspend:
+    post:
+      tags:
+        - Admin - Users
+      summary: Suspend user account
+      description: Suspend a user account with a reason
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+                  example: Violation of terms of service
+                  description: Reason for suspension
+      responses:
+        "200":
+          description: User suspended successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User suspended successfully
+        "400":
+          description: Bad request - Invalid input
+        "401":
+          description: Unauthorized - Invalid or missing token
+        "403":
+          description: Forbidden - Admin access required
+        "404":
+          description: User not found
+
+  /admin/users/{id}/activate:
+    post:
+      tags:
+        - Admin - Users
+      summary: Activate suspended user account
+      description: Reactivate a previously suspended user account
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User ID
+      responses:
+        "200":
+          description: User activated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User activated successfully
+        "401":
+          description: Unauthorized - Invalid or missing token
+        "403":
+          description: Forbidden - Admin access required
+        "404":
+          description: User not found

@@ -1,0 +1,290 @@
+/files/upload:
+  post:
+    tags:
+      - Files - Upload
+    summary: Upload single file
+    description: Upload a single file
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - file
+            properties:
+              file:
+                type: string
+                format: binary
+              folderId:
+                type: string
+                format: uuid
+                description: Target folder ID (optional)
+    responses:
+      201:
+        description: File uploaded successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/File"
+      403:
+        description: File size exceeded or storage limit reached
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/files/multi-upload:
+  post:
+    tags:
+      - Files - Upload
+    summary: Upload multiple files
+    description: Upload multiple files at once
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - files
+            properties:
+              files:
+                type: array
+                items:
+                  type: string
+                  format: binary
+              folderId:
+                type: string
+                format: uuid
+    responses:
+      201:
+        description: Files uploaded
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    files:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/File"
+                    failed:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          filename:
+                            type: string
+                          error:
+                            type: string
+
+/files/upload/chunk/init:
+  post:
+    tags:
+      - Files - Upload
+    summary: Initialize chunked upload
+    description: Initialize chunked upload session for large files
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - fileName
+              - fileSize
+              - fileType
+              - totalChunks
+            properties:
+              fileName:
+                type: string
+                example: "largefile.mp4"
+              fileSize:
+                type: number
+                example: 524288000
+              folderId:
+                type: string
+                format: uuid
+                nullable: true
+              fileType:
+                type: string
+                example: "video/mp4"
+              totalChunks:
+                type: integer
+                example: 50
+    responses:
+      201:
+        description: Upload session initialized
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    uploadId:
+                      type: string
+                      example: "upload_userid_timestamp_random"
+
+/files/upload/chunk:
+  post:
+    tags:
+      - Files - Upload
+    summary: Upload file chunk
+    description: Upload a single chunk of a large file
+    requestBody:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required:
+              - chunk
+              - uploadId
+              - chunkIndex
+            properties:
+              chunk:
+                type: string
+                format: binary
+              uploadId:
+                type: string
+              chunkIndex:
+                type: integer
+    responses:
+      200:
+        description: Chunk uploaded successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    received:
+                      type: integer
+                    total:
+                      type: integer
+
+/files/upload/chunk/complete:
+  post:
+    tags:
+      - Files - Upload
+    summary: Complete chunked upload
+    description: Finalize chunked upload and merge chunks
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - uploadId
+            properties:
+              uploadId:
+                type: string
+    responses:
+      201:
+        description: File upload completed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/File"
+      400:
+        description: Not all chunks received
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/files/upload/url:
+  post:
+    tags:
+      - Files - Upload
+    summary: Generate upload URL
+    description: Generate signed URL for direct upload (S3)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - fileName
+              - fileType
+            properties:
+              fileName:
+                type: string
+              folderId:
+                type: string
+                format: uuid
+                nullable: true
+              fileType:
+                type: string
+    responses:
+      200:
+        description: Upload URL generated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    uploadUrl:
+                      type: string
+                    fileId:
+                      type: string
+
+/files/upload/cancel:
+  post:
+    tags:
+      - Files - Upload
+    summary: Cancel upload
+    description: Cancel ongoing chunked upload
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - uploadId
+            properties:
+              uploadId:
+                type: string
+    responses:
+      200:
+        description: Upload cancelled
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuccessResponse"

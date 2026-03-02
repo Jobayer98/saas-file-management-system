@@ -1,0 +1,552 @@
+/files:
+  get:
+    tags:
+      - Files - Management
+    summary: Get files
+    description: Get files with pagination
+    parameters:
+      - name: folderId
+        in: query
+        schema:
+          type: string
+          format: uuid
+        description: Folder ID (omit for root files)
+      - name: page
+        in: query
+        schema:
+          type: integer
+          default: 1
+      - name: limit
+        in: query
+        schema:
+          type: integer
+          default: 10
+    responses:
+      200:
+        description: Files retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    files:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/File"
+                    total:
+                      type: integer
+                    page:
+                      type: integer
+                    limit:
+                      type: integer
+                    totalPages:
+                      type: integer
+
+/files/{id}:
+  get:
+    tags:
+      - Files - Management
+    summary: Get file by ID
+    description: Get file details with metadata
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: File retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    file:
+                      $ref: "#/components/schemas/File"
+                    metadata:
+                      type: object
+      404:
+        description: File not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+  delete:
+    tags:
+      - Files - Management
+    summary: Delete file
+    description: Soft delete file (moves to trash)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: File moved to trash
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuccessResponse"
+
+/files/{id}/download:
+  get:
+    tags:
+      - Files - Management
+    summary: Download file
+    description: Download file content
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: File download
+        content:
+          application/octet-stream:
+            schema:
+              type: string
+              format: binary
+      404:
+        description: File not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/files/{id}/preview:
+  get:
+    tags:
+      - Files - Management
+    summary: Get preview URL
+    description: Get file preview URL
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: Preview URL retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    previewUrl:
+                      type: string
+                    type:
+                      type: string
+                      enum: [image, video, pdf, other]
+
+/files/{id}/thumbnail:
+  get:
+    tags:
+      - Files - Management
+    summary: Get thumbnail URL
+    description: Get file thumbnail URL
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: Thumbnail URL retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    thumbnailUrl:
+                      type: string
+
+/files/{id}/rename:
+  put:
+    tags:
+      - Files - Management
+    summary: Rename file
+    description: Rename file
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - newName
+            properties:
+              newName:
+                type: string
+    responses:
+      200:
+        description: File renamed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/File"
+
+/files/{id}/move:
+  post:
+    tags:
+      - Files - Management
+    summary: Move file
+    description: Move file to different folder
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - targetFolderId
+            properties:
+              targetFolderId:
+                type: string
+                format: uuid
+                nullable: true
+    responses:
+      200:
+        description: File moved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/File"
+
+/files/{id}/copy:
+  post:
+    tags:
+      - Files - Management
+    summary: Copy file
+    description: Copy file to different folder
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - targetFolderId
+            properties:
+              targetFolderId:
+                type: string
+                format: uuid
+                nullable: true
+    responses:
+      200:
+        description: File copied successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/File"
+
+/files/{id}/favorite:
+  post:
+    tags:
+      - Files - Management
+    summary: Mark as favorite
+    description: Mark file as favorite
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: File marked as favorite
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    isFavorite:
+                      type: boolean
+
+/files/{id}/unfavorite:
+  post:
+    tags:
+      - Files - Management
+    summary: Remove from favorites
+    description: Remove file from favorites
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: File removed from favorites
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuccessResponse"
+
+/files/{id}/share:
+  post:
+    tags:
+      - Files - Management
+    summary: Share file
+    description: Generate temporary share link for file
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              expiresIn:
+                type: integer
+                description: Expiry time in seconds
+                example: 604800
+              permissions:
+                type: string
+                enum: [view, download, edit]
+                default: view
+    responses:
+      200:
+        description: Share link generated
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    shareLink:
+                      type: string
+                    token:
+                      type: string
+
+  delete:
+    tags:
+      - Files - Management
+    summary: Delete share link
+    description: Delete file share link
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: Share link deleted
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuccessResponse"
+
+/files/bulk/delete:
+  post:
+    tags:
+      - Files - Management
+    summary: Bulk delete files
+    description: Delete multiple files at once
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - fileIds
+            properties:
+              fileIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+    responses:
+      200:
+        description: Files deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: object
+                  properties:
+                    deleted:
+                      type: array
+                      items:
+                        type: string
+                    count:
+                      type: integer
+
+/files/bulk/move:
+  post:
+    tags:
+      - Files - Management
+    summary: Bulk move files
+    description: Move multiple files at once
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - fileIds
+              - targetFolderId
+            properties:
+              fileIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+              targetFolderId:
+                type: string
+                format: uuid
+                nullable: true
+    responses:
+      200:
+        description: Files moved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: object
+                  properties:
+                    moved:
+                      type: array
+                      items:
+                        type: string
+                    count:
+                      type: integer
+
+/files/bulk/favorite:
+  post:
+    tags:
+      - Files - Management
+    summary: Bulk favorite files
+    description: Mark multiple files as favorite
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - fileIds
+            properties:
+              fileIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+    responses:
+      200:
+        description: Files marked as favorite
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: object
+                  properties:
+                    count:
+                      type: integer

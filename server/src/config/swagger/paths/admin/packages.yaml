@@ -1,0 +1,227 @@
+/admin/packages:
+  post:
+    tags:
+      - Admin - Packages
+    summary: Create new package
+    description: Create a new subscription package (Admin only)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - name
+              - description
+              - maxFolders
+              - maxNestingLevel
+              - allowedFileTypes
+              - maxFileSize
+              - totalFileLimit
+              - filesPerFolder
+              - price
+            properties:
+              name:
+                type: string
+                example: "Premium"
+              description:
+                type: string
+                example: "Premium package for power users"
+              maxFolders:
+                type: integer
+                example: 500
+              maxNestingLevel:
+                type: integer
+                example: 15
+              allowedFileTypes:
+                type: array
+                items:
+                  type: string
+                example: ["*"]
+              maxFileSize:
+                type: number
+                example: 209715200
+              totalFileLimit:
+                type: number
+                example: 53687091200
+              filesPerFolder:
+                type: integer
+                example: 1000
+              price:
+                type: number
+                example: 49.99
+    responses:
+      201:
+        description: Package created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Package"
+      403:
+        description: Admin access required
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+  get:
+    tags:
+      - Admin - Packages
+    summary: Get all packages
+    description: Retrieve all subscription packages (Admin only)
+    responses:
+      200:
+        description: Packages retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Package"
+
+/admin/packages/{id}:
+  get:
+    tags:
+      - Admin - Packages
+    summary: Get package by ID
+    description: Retrieve specific package details (Admin only)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      200:
+        description: Package retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Package"
+      404:
+        description: Package not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+  put:
+    tags:
+      - Admin - Packages
+    summary: Update package
+    description: Update package details (Admin only)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+              description:
+                type: string
+              maxFolders:
+                type: integer
+              maxNestingLevel:
+                type: integer
+              allowedFileTypes:
+                type: array
+                items:
+                  type: string
+              maxFileSize:
+                type: number
+              totalFileLimit:
+                type: number
+              filesPerFolder:
+                type: integer
+              price:
+                type: number
+              isActive:
+                type: boolean
+    responses:
+      200:
+        description: Package updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Package"
+
+  delete:
+    tags:
+      - Admin - Packages
+    summary: Delete package
+    description: Delete package if no active subscriptions (Admin only)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      200:
+        description: Package deleted successfully
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuccessResponse"
+      400:
+        description: Cannot delete package with active subscriptions
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/admin/packages/{id}/toggle:
+  patch:
+    tags:
+      - Admin - Packages
+    summary: Toggle package status
+    description: Activate or deactivate package (Admin only)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      200:
+        description: Package status toggled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    isActive:
+                      type: boolean

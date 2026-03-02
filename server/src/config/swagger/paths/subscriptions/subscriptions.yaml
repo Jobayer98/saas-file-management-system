@@ -1,0 +1,223 @@
+/subscriptions/packages:
+  get:
+    tags:
+      - Subscriptions
+    summary: Get active packages
+    description: Retrieve all active subscription packages
+    responses:
+      200:
+        description: Active packages retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Package"
+
+/subscriptions/current:
+  get:
+    tags:
+      - Subscriptions
+    summary: Get current subscription
+    description: Get user's current subscription with usage stats
+    responses:
+      200:
+        description: Current subscription retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    subscription:
+                      $ref: "#/components/schemas/Subscription"
+                    package:
+                      $ref: "#/components/schemas/Package"
+                    usage:
+                      type: object
+                      properties:
+                        fileCount:
+                          type: integer
+                        folderCount:
+                          type: integer
+                        totalSize:
+                          type: string
+                        percentUsed:
+                          type: number
+
+/subscriptions/select:
+  post:
+    tags:
+      - Subscriptions
+    summary: Select package
+    description: Select initial subscription package
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - packageId
+            properties:
+              packageId:
+                type: integer
+                example: 2
+    responses:
+      201:
+        description: Package selected successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Subscription"
+      400:
+        description: User already has subscription
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/subscriptions/change:
+  put:
+    tags:
+      - Subscriptions
+    summary: Change package
+    description: Change to different subscription package
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - newPackageId
+            properties:
+              newPackageId:
+                type: integer
+                example: 3
+    responses:
+      200:
+        description: Package changed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  $ref: "#/components/schemas/Subscription"
+
+/subscriptions/usage:
+  get:
+    tags:
+      - Subscriptions
+    summary: Get usage statistics
+    description: Get current usage statistics
+    responses:
+      200:
+        description: Usage stats retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    fileCount:
+                      type: integer
+                    folderCount:
+                      type: integer
+                    totalSize:
+                      type: string
+                    percentUsed:
+                      type: number
+
+/subscriptions/limits:
+  get:
+    tags:
+      - Subscriptions
+    summary: Get limits
+    description: Get current usage limits and remaining quota
+    responses:
+      200:
+        description: Limits retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    current:
+                      type: object
+                    allowed:
+                      type: object
+                    remaining:
+                      type: object
+
+/subscriptions/cancel:
+  post:
+    tags:
+      - Subscriptions
+    summary: Cancel subscription
+    description: Cancel current subscription (30-day grace period)
+    responses:
+      200:
+        description: Subscription cancelled
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: object
+                  properties:
+                    endDate:
+                      type: string
+                      format: date-time
+
+/subscriptions/renew:
+  post:
+    tags:
+      - Subscriptions
+    summary: Renew subscription
+    description: Renew cancelled subscription
+    responses:
+      200:
+        description: Subscription renewed
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Subscription"

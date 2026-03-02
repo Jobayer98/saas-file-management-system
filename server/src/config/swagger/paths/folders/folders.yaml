@@ -1,0 +1,366 @@
+/folders:
+  post:
+    tags:
+      - Folders
+    summary: Create folder
+    description: Create a new folder
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+                example: "Documents"
+              parentId:
+                type: string
+                format: uuid
+                nullable: true
+    responses:
+      201:
+        description: Folder created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Folder"
+      403:
+        description: Folder limit reached or nesting limit exceeded
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+  get:
+    tags:
+      - Folders
+    summary: Get folders
+    description: Get folders by parent with files
+    parameters:
+      - name: parentId
+        in: query
+        schema:
+          type: string
+          format: uuid
+        description: Parent folder ID (omit for root folders)
+    responses:
+      200:
+        description: Folders retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    folders:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/Folder"
+                    files:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/File"
+
+/folders/tree:
+  get:
+    tags:
+      - Folders
+    summary: Get folder tree
+    description: Get complete folder tree structure
+    responses:
+      200:
+        description: Folder tree retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: array
+                  items:
+                    allOf:
+                      - $ref: "#/components/schemas/Folder"
+                      - type: object
+                        properties:
+                          children:
+                            type: array
+                            items:
+                              $ref: "#/components/schemas/Folder"
+
+/folders/{id}:
+  get:
+    tags:
+      - Folders
+    summary: Get folder by ID
+    description: Get folder details with children and files
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: Folder retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: object
+                  properties:
+                    folder:
+                      $ref: "#/components/schemas/Folder"
+                    children:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/Folder"
+                    files:
+                      type: array
+                      items:
+                        $ref: "#/components/schemas/File"
+      404:
+        description: Folder not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+  put:
+    tags:
+      - Folders
+    summary: Update folder
+    description: Update folder name
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - name
+            properties:
+              name:
+                type: string
+    responses:
+      200:
+        description: Folder updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Folder"
+
+  delete:
+    tags:
+      - Folders
+    summary: Delete folder
+    description: Soft delete folder (moves to trash with all descendants)
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: Folder moved to trash
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: object
+                  properties:
+                    movedToTrash:
+                      type: boolean
+
+/folders/{id}/move:
+  post:
+    tags:
+      - Folders
+    summary: Move folder
+    description: Move folder to different location
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - targetFolderId
+            properties:
+              targetFolderId:
+                type: string
+                format: uuid
+                nullable: true
+                description: Target folder ID (null for root)
+    responses:
+      200:
+        description: Folder moved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  $ref: "#/components/schemas/Folder"
+      400:
+        description: Invalid move (circular reference or same location)
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/folders/{id}/breadcrumb:
+  get:
+    tags:
+      - Folders
+    summary: Get breadcrumb
+    description: Get folder path breadcrumb
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    responses:
+      200:
+        description: Breadcrumb retrieved
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Folder"
+
+/folders/bulk/create:
+  post:
+    tags:
+      - Folders
+    summary: Bulk create folders
+    description: Create multiple folders at once
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - names
+            properties:
+              names:
+                type: array
+                items:
+                  type: string
+                example: ["Folder1", "Folder2", "Folder3"]
+              parentId:
+                type: string
+                format: uuid
+                nullable: true
+    responses:
+      201:
+        description: Folders created successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                data:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/Folder"
+
+/folders/bulk/delete:
+  post:
+    tags:
+      - Folders
+    summary: Bulk delete folders
+    description: Delete multiple folders at once
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - folderIds
+            properties:
+              folderIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+    responses:
+      200:
+        description: Folders deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: object
+                  properties:
+                    deleted:
+                      type: array
+                      items:
+                        type: string
+                    count:
+                      type: integer
