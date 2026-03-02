@@ -1,14 +1,17 @@
 import logger from '@/lib/logger';
+import { handleError } from '@/utils/error';
 import { Request, Response, NextFunction } from 'express';
 
 export class AppError extends Error {
   statusCode: number;
   isOperational: boolean;
+  code?: string;
 
-  constructor(message: string, statusCode: number = 500) {
+  constructor(message: string, statusCode: number = 500, code?: string) {
     super(message);
     this.statusCode = statusCode;
     this.isOperational = true;
+    this.code = code;
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -26,17 +29,7 @@ export const errorHandler = (
     method: req.method,
   });
 
-  if (err instanceof AppError) {
-    return res.status(err.statusCode).json({
-      success: false,
-      message: err.message,
-    });
-  }
-
-  return res.status(500).json({
-    success: false,
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error',
-  });
+  handleError(err, res);
 };
 
 export const notFound = (_req: Request, res: Response) => {

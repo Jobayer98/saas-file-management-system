@@ -1,104 +1,51 @@
-import { Request, Response, NextFunction } from 'express';
 import authService from '@/services/auth/auth.service';
 import { AuthRequest } from '@/types';
+import { asyncHandler } from '@/utils/asyncHandler';
+import { ResponseUtil } from '@/utils/response';
+import { Response } from 'express';
+
 
 export class AuthController {
-  async register(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.register(req.body);
-      res.status(201).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  register = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await authService.register(req.body);
+    ResponseUtil.success(res, { userId: result.userId }, result.message, 201);
+  });
 
-  async login(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.login(req.body);
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  login = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await authService.login(req.body);
+    ResponseUtil.success(res, result, 'Login successful');
+  });
 
-  async logout(req: Request, res: Response, next: NextFunction) {
-    try {
-      const { refreshToken } = req.body;
-      const result = await authService.logout(refreshToken);
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  logout = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const { refreshToken } = req.body;
+    const result = await authService.logout(refreshToken);
+    ResponseUtil.success(res, null, result.message);
+  });
 
-  async verifyEmail(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.verifyEmail(req.body.token);
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  verifyEmail = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await authService.verifyEmail(req.body.token);
+    ResponseUtil.success(res, null, result.message);
+  });
 
-  async forgotPassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.forgotPassword(req.body);
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  forgotPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await authService.forgotPassword(req.body);
+    ResponseUtil.success(res, null, result.message);
+  });
 
-  async resetPassword(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.resetPassword(req.body);
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  resetPassword = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await authService.resetPassword(req.body);
+    ResponseUtil.success(res, null, result.message);
+  });
 
-  async refreshToken(req: Request, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.refreshAccessToken(req.body.refreshToken);
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  refreshToken = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await authService.refreshAccessToken(req.body.refreshToken);
+    ResponseUtil.success(res, result, 'Token refreshed successfully');
+  });
 
-  async getMe(req: AuthRequest, res: Response, next: NextFunction) {
-    try {
-      const result = await authService.getMe(req.user!.id);
-      res.status(200).json({
-        success: true,
-        ...result,
-      });
-    } catch (error) {
-      next(error);
-    }
-  }
+  getMe = asyncHandler(async (req: AuthRequest, res: Response) => {
+    const result = await authService.getMe(req.user!.id);
+    ResponseUtil.success(res, result.user, 'User retrieved successfully');
+  });
 }
 
 export default new AuthController();
