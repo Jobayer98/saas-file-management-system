@@ -58,3 +58,5 @@ docker-compose.override.yml
 TODO.md
 
 /src/generated/prisma
+
+/src/generated/prisma
