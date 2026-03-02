@@ -1,10 +1,11 @@
-import { Package } from '@/generated/prisma/client';
-import prisma from '@/lib/prisma';
+import { Package, PrismaClient } from '@/generated/prisma/client';
 import { CreatePackageInput, UpdatePackageInput } from '@/validators/admin/package.validator';
 
 export class PackageRepository {
+  constructor(private prisma: PrismaClient) { }
+
   async createPackage(data: CreatePackageInput): Promise<Package> {
-    return await prisma.package.create({
+    return await this.prisma.package.create({
       data: {
         ...data,
         maxFileSize: BigInt(data.maxFileSize),
@@ -14,13 +15,13 @@ export class PackageRepository {
   }
 
   async getAllPackages(): Promise<Package[]> {
-    return await prisma.package.findMany({
+    return await this.prisma.package.findMany({
       orderBy: { price: 'asc' },
     });
   }
 
   async getPackageById(id: number): Promise<Package | null> {
-    return await prisma.package.findUnique({
+    return await this.prisma.package.findUnique({
       where: { id },
     });
   }
@@ -35,14 +36,14 @@ export class PackageRepository {
       updateData.totalFileLimit = BigInt(data.totalFileLimit);
     }
 
-    return await prisma.package.update({
+    return await this.prisma.package.update({
       where: { id },
       data: updateData,
     });
   }
 
   async deletePackage(id: number): Promise<void> {
-    await prisma.package.delete({
+    await this.prisma.package.delete({
       where: { id },
     });
   }
@@ -51,14 +52,14 @@ export class PackageRepository {
     const pkg = await this.getPackageById(id);
     if (!pkg) throw new Error('Package not found');
 
-    return await prisma.package.update({
+    return await this.prisma.package.update({
       where: { id },
       data: { isActive: !pkg.isActive },
     });
   }
 
   async getPackageWithSubscriptionCount(id: number) {
-    return await prisma.package.findUnique({
+    return await this.prisma.package.findUnique({
       where: { id },
       include: {
         _count: {
@@ -68,5 +69,3 @@ export class PackageRepository {
     });
   }
 }
-
-export default new PackageRepository();

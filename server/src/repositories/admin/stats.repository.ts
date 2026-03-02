@@ -1,16 +1,17 @@
-import prisma from "@/lib/prisma";
-
+import { PrismaClient } from "@/generated/prisma/client";
 
 export class StatsRepository {
+  constructor(private prisma: PrismaClient) { }
+
   async getOverviewStats() {
     const [totalUsers, activeSubscriptions, totalStorageResult, packages] = await Promise.all([
-      prisma.user.count(),
-      prisma.subscription.count({ where: { isActive: true } }),
-      prisma.file.aggregate({
+      this.prisma.user.count(),
+      this.prisma.subscription.count({ where: { isActive: true } }),
+      this.prisma.file.aggregate({
         where: { isDeleted: false },
         _sum: { size: true },
       }),
-      prisma.package.findMany({
+      this.prisma.package.findMany({
         include: {
           _count: {
             select: { subscriptions: true },
@@ -52,7 +53,7 @@ export class StatsRepository {
       where.startDate = { lte: to };
     }
 
-    const subscriptions = await prisma.subscription.findMany({
+    const subscriptions = await this.prisma.subscription.findMany({
       where,
       include: {
         package: true,
@@ -80,7 +81,7 @@ export class StatsRepository {
 
   async getUsageStats() {
     const [topUsers, storageTrend] = await Promise.all([
-      prisma.user.findMany({
+      this.prisma.user.findMany({
         take: 10,
         select: {
           id: true,
@@ -92,7 +93,7 @@ export class StatsRepository {
           },
         },
       }),
-      prisma.file.groupBy({
+      this.prisma.file.groupBy({
         by: ['createdAt'],
         where: { isDeleted: false },
         _sum: { size: true },
@@ -122,5 +123,3 @@ export class StatsRepository {
     };
   }
 }
-
-export default new StatsRepository();

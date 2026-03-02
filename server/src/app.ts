@@ -3,8 +3,10 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 import routes from './routes';
 import { errorHandler, notFound } from './middlewares/error/error.middleware';
+import { swaggerSpec } from './config/swagger/swagger.config';
 
 const app: Application = express();
 
@@ -22,6 +24,18 @@ app.use(express.urlencoded({ extended: true }));
 // Health check
 app.get('/health', (_req, res) => {
     res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
+// API Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    customCss: '.swagger-ui .topbar { display: none }',
+    customSiteTitle: 'SaaS File Management API Docs',
+}));
+
+// Swagger JSON endpoint
+app.get('/api-docs.json', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
 });
 
 // API Routes

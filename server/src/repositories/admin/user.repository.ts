@@ -1,8 +1,8 @@
-import { User } from "@/generated/prisma/client";
-import prisma from "@/lib/prisma";
-
+import { User, PrismaClient } from "@/generated/prisma/client";
 
 export class UserRepository {
+  constructor(private prisma: PrismaClient) { }
+
   async getAllUsers(page: number, limit: number, search?: string) {
     const skip = (page - 1) * limit;
     
@@ -16,7 +16,7 @@ export class UserRepository {
       : {};
 
     const [users, total] = await Promise.all([
-      prisma.user.findMany({
+      this.prisma.user.findMany({
         where,
         skip,
         take: limit,
@@ -33,14 +33,14 @@ export class UserRepository {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.user.count({ where }),
+      this.prisma.user.count({ where }),
     ]);
 
     return { users, total };
   }
 
   async getUserById(id: string) {
-    return await prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -62,14 +62,14 @@ export class UserRepository {
   }
 
   async updateUserRole(id: string, isAdmin: boolean): Promise<User> {
-    return await prisma.user.update({
+    return await this.prisma.user.update({
       where: { id },
       data: { isAdmin },
     });
   }
 
   async suspendUser(id: string, reason: string): Promise<User> {
-    return await prisma.user.update({
+    return await this.prisma.user.update({
       where: { id },
       data: {
         isSuspended: true,
@@ -79,7 +79,7 @@ export class UserRepository {
   }
 
   async activateUser(id: string): Promise<User> {
-    return await prisma.user.update({
+    return await this.prisma.user.update({
       where: { id },
       data: {
         isSuspended: false,
@@ -90,13 +90,13 @@ export class UserRepository {
 
   async getUserUsageStats(userId: string) {
     const [fileCount, folderCount, totalSize] = await Promise.all([
-      prisma.file.count({
+      this.prisma.file.count({
         where: { userId, isDeleted: false },
       }),
-      prisma.folder.count({
+      this.prisma.folder.count({
         where: { userId, isDeleted: false },
       }),
-      prisma.file.aggregate({
+      this.prisma.file.aggregate({
         where: { userId, isDeleted: false },
         _sum: { size: true },
       }),
@@ -109,5 +109,3 @@ export class UserRepository {
     };
   }
 }
-
-export default new UserRepository();

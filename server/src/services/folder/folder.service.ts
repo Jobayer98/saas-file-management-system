@@ -1,6 +1,7 @@
-import folderRepository from '@/repositories/folder/folder.repository';
-import subscriptionRepository from '@/repositories/subscription/subscription.repository';
+
 import { AppError } from '@/middlewares/error/error.middleware';
+import { FolderRepository } from '@/repositories/folder/folder.repository';
+import { SubscriptionRepository } from '@/repositories/subscription/subscription.repository';
 import {
   CreateFolderInput,
   UpdateFolderInput,
@@ -12,20 +13,24 @@ import {
 } from '@/validators/folder/folder.validator';
 
 export class FolderService {
+  constructor(private folderRepository: FolderRepository,
+    private subscriptionRepository: SubscriptionRepository,
+  ) { }
+
   async createFolder(userId: string, data: CreateFolderInput) {
     // Check subscription limits
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
 
-    const folderCount = await folderRepository.countFoldersByUser(userId);
+    const folderCount = await this.folderRepository.countFoldersByUser(userId);
     if (folderCount >= subscription.package.maxFolders) {
       throw new AppError('Folder limit reached', 403, 'FOLDER_LIMIT_REACHED');
     }
 
     // Check if folder name already exists in parent
-    const nameExists = await folderRepository.checkFolderNameExists(
+    const nameExists = await this.folderRepository.checkFolderNameExists(
       data.name,
       data.parentId || null,
       userId
@@ -38,7 +43,7 @@ export class FolderService {
     let path = '';
 
     if (data.parentId) {
-      const parentFolder = await folderRepository.getFolderById(data.parentId, userId);
+      const parentFolder = await this.folderRepository.getFolderById(data.parentId, userId);
       if (!parentFolder) {
         throw new AppError('Parent folder not found', 404, 'PARENT_FOLDER_NOT_FOUND');
       }
@@ -52,7 +57,7 @@ export class FolderService {
       }
     }
 
-    const folder = await folderRepository.createFolder({
+    const folder = await this.folderRepository.createFolder({
       name: data.name,
       userId,
       parentId: data.parentId || null,
@@ -64,8 +69,8 @@ export class FolderService {
   }
 
   async getFolders(userId: string, parentId?: string) {
-    const folders = await folderRepository.getFoldersByParent(userId, parentId || null);
-    const files = parentId ? await folderRepository.getFilesByFolder(parentId) : [];
+    const folders = await this.folderRepository.getFoldersByParent(userId, parentId || null);
+    const files = parentId ? await this.folderRepository.getFilesByFolder(parentId) : [];
 
     return {
       folders,
@@ -77,8 +82,8 @@ export class FolderService {
   }
 
   async getFolderById(userId: string, folderId: string) {
-    const folderData = await folderRepository.getFolderWithChildren(folderId, userId);
-    
+    const folderData = await this.folderRepository.getFolderWithChildren(folderId, userId);
+
     if (!folderData) {
       throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
     }
@@ -94,24 +99,24 @@ export class FolderService {
   }
 
   async getChildrenFolders(userId: string, folderId: string) {
-    const folder = await folderRepository.getFolderById(folderId, userId);
+    const folder = await this.folderRepository.getFolderById(folderId, userId);
     if (!folder) {
       throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
     }
 
-    const folders = await folderRepository.getChildrenFolders(folderId, userId);
+    const folders = await this.folderRepository.getChildrenFolders(folderId, userId);
     return { folders };
   }
 
   async updateFolder(userId: string, folderId: string, data: UpdateFolderInput) {
-    const folder = await folderRepository.getFolderById(folderId, userId);
+    const folder = await this.folderRepository.getFolderById(folderId, userId);
     if (!folder) {
       throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
     }
 
     // Check if new name already exists in same parent
     if (data.name !== folder.name) {
-      const nameExists = await folderRepository.checkFolderNameExists(
+      const nameExists = await this.folderRepository.checkFolderNameExists(
         data.name,
         folder.parentId,
         userId
@@ -121,21 +126,21 @@ export class FolderService {
       }
     }
 
-    const updatedFolder = await folderRepository.updateFolder(folderId, userId, data);
+    const updatedFolder = await this.folderRepository.updateFolder(folderId, userId, data);
     return { folder: updatedFolder };
   }
 
   async deleteFolder(userId: string, folderId: string) {
-    const folder = await folderRepository.getFolderById(folderId, userId);
+    const folder = await this.folderRepository.getFolderById(folderId, userId);
     if (!folder) {
       throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
     }
 
     // Soft delete the folder and all its descendants
-    const descendants = await folderRepository.getAllDescendants(folderId, userId);
+    const descendants = await this.folderRepository.getAllDescendants(folderId, userId);
     const allIds = [folderId, ...descendants.map(d => d.id)];
-    
-    await folderRepository.bulkSoftDelete(allIds);
+
+    await this.folderRepository.bulkSoftDelete(allIds);
 
     return {
       message: 'Folder moved to trash',
@@ -144,7 +149,7 @@ export class FolderService {
   }
 
   async moveFolder(userId: string, folderId: string, data: MoveFolderInput) {
-    const folder = await folderRepository.getFolderById(folderId, userId);
+    const folder = await this.folderRepository.getFolderById(folderId, userId);
     if (!folder) {
       throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
     }
@@ -158,7 +163,7 @@ export class FolderService {
     let newPath = '';
 
     if (data.targetFolderId) {
-      const targetFolder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      const targetFolder = await this.folderRepository.getFolderById(data.targetFolderId, userId);
       if (!targetFolder) {
         throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
       }
@@ -172,13 +177,13 @@ export class FolderService {
       newPath = targetFolder.path ? `${targetFolder.path}/${targetFolder.id}` : targetFolder.id;
 
       // Check nesting level
-      const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+      const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
       if (subscription && newLevel > subscription.package.maxNestingLevel) {
         throw new AppError('Maximum nesting level reached', 403, 'NESTING_LIMIT_REACHED');
       }
 
       // Check if folder name already exists in target
-      const nameExists = await folderRepository.checkFolderNameExists(
+      const nameExists = await this.folderRepository.checkFolderNameExists(
         folder.name,
         data.targetFolderId,
         userId
@@ -188,23 +193,23 @@ export class FolderService {
       }
     }
 
-    const movedFolder = await folderRepository.moveFolder(folderId, data.targetFolderId || null, newPath, newLevel);
+    const movedFolder = await this.folderRepository.moveFolder(folderId, data.targetFolderId || null, newPath, newLevel);
     return { folder: movedFolder };
   }
 
   async copyFolder(userId: string, folderId: string, data: CopyFolderInput) {
-    const folder = await folderRepository.getFolderById(folderId, userId);
+    const folder = await this.folderRepository.getFolderById(folderId, userId);
     if (!folder) {
       throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
     }
 
     // Check subscription limits
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
 
-    const folderCount = await folderRepository.countFoldersByUser(userId);
+    const folderCount = await this.folderRepository.countFoldersByUser(userId);
     if (folderCount >= subscription.package.maxFolders) {
       throw new AppError('Folder limit reached', 403, 'FOLDER_LIMIT_REACHED');
     }
@@ -213,7 +218,7 @@ export class FolderService {
     let path = '';
 
     if (data.targetFolderId) {
-      const targetFolder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      const targetFolder = await this.folderRepository.getFolderById(data.targetFolderId, userId);
       if (!targetFolder) {
         throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
       }
@@ -228,7 +233,7 @@ export class FolderService {
 
     // Create copy with " - Copy" suffix
     const copyName = `${folder.name} - Copy`;
-    const copiedFolder = await folderRepository.createFolder({
+    const copiedFolder = await this.folderRepository.createFolder({
       name: copyName,
       userId,
       parentId: data.targetFolderId || null,
@@ -240,18 +245,18 @@ export class FolderService {
   }
 
   async getBreadcrumb(userId: string, folderId: string) {
-    const folder = await folderRepository.getFolderById(folderId, userId);
+    const folder = await this.folderRepository.getFolderById(folderId, userId);
     if (!folder) {
       throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
     }
 
-    const breadcrumb = await folderRepository.getBreadcrumb(folderId, userId);
+    const breadcrumb = await this.folderRepository.getBreadcrumb(folderId, userId);
     return { path: breadcrumb };
   }
 
   async getFolderTree(userId: string) {
-    const folders = await folderRepository.getFolderTree(userId);
-    
+    const folders = await this.folderRepository.getFolderTree(userId);
+
     // Build tree structure
     const folderMap = new Map();
     const tree: any[] = [];
@@ -273,12 +278,12 @@ export class FolderService {
   }
 
   async bulkCreateFolders(userId: string, data: BulkCreateFoldersInput) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
 
-    const currentCount = await folderRepository.countFoldersByUser(userId);
+    const currentCount = await this.folderRepository.countFoldersByUser(userId);
     if (currentCount + data.names.length > subscription.package.maxFolders) {
       throw new AppError('Folder limit would be exceeded', 403, 'FOLDER_LIMIT_EXCEEDED');
     }
@@ -287,7 +292,7 @@ export class FolderService {
     let path = '';
 
     if (data.parentId) {
-      const parentFolder = await folderRepository.getFolderById(data.parentId, userId);
+      const parentFolder = await this.folderRepository.getFolderById(data.parentId, userId);
       if (!parentFolder) {
         throw new AppError('Parent folder not found', 404, 'PARENT_FOLDER_NOT_FOUND');
       }
@@ -302,17 +307,17 @@ export class FolderService {
 
     const folders = await Promise.all(
       data.names.map(async (name) => {
-        const nameExists = await folderRepository.checkFolderNameExists(
+        const nameExists = await this.folderRepository.checkFolderNameExists(
           name,
           data.parentId || null,
           userId
         );
-        
+
         if (nameExists) {
           return null; // Skip duplicates
         }
 
-        return await folderRepository.createFolder({
+        return await this.folderRepository.createFolder({
           name,
           userId,
           parentId: data.parentId || null,
@@ -327,8 +332,8 @@ export class FolderService {
   }
 
   async bulkDeleteFolders(userId: string, data: BulkDeleteFoldersInput) {
-    const folders = await folderRepository.getFoldersByIds(data.folderIds, userId);
-    
+    const folders = await this.folderRepository.getFoldersByIds(data.folderIds, userId);
+
     if (folders.length === 0) {
       throw new AppError('No folders found', 404, 'FOLDERS_NOT_FOUND');
     }
@@ -337,11 +342,11 @@ export class FolderService {
     const allIds = new Set<string>();
     for (const folder of folders) {
       allIds.add(folder.id);
-      const descendants = await folderRepository.getAllDescendants(folder.id, userId);
+      const descendants = await this.folderRepository.getAllDescendants(folder.id, userId);
       descendants.forEach(d => allIds.add(d.id));
     }
 
-    const deletedCount = await folderRepository.bulkSoftDelete(Array.from(allIds));
+    const deletedCount = await this.folderRepository.bulkSoftDelete(Array.from(allIds));
 
     return {
       message: 'Folders moved to trash',
@@ -351,8 +356,8 @@ export class FolderService {
   }
 
   async bulkMoveFolders(userId: string, data: BulkMoveFoldersInput) {
-    const folders = await folderRepository.getFoldersByIds(data.folderIds, userId);
-    
+    const folders = await this.folderRepository.getFoldersByIds(data.folderIds, userId);
+
     if (folders.length === 0) {
       throw new AppError('No folders found', 404, 'FOLDERS_NOT_FOUND');
     }
@@ -361,7 +366,7 @@ export class FolderService {
     let newPath = '';
 
     if (data.targetFolderId) {
-      const targetFolder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      const targetFolder = await this.folderRepository.getFolderById(data.targetFolderId, userId);
       if (!targetFolder) {
         throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
       }
@@ -376,15 +381,15 @@ export class FolderService {
       newLevel = targetFolder.level + 1;
       newPath = targetFolder.path ? `${targetFolder.path}/${targetFolder.id}` : targetFolder.id;
 
-      const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+      const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
       if (subscription && newLevel > subscription.package.maxNestingLevel) {
         throw new AppError('Maximum nesting level reached', 403, 'NESTING_LIMIT_REACHED');
       }
     }
 
     const movedFolders = await Promise.all(
-      folders.map(folder => 
-        folderRepository.moveFolder(folder.id, data.targetFolderId || null, newPath, newLevel)
+      folders.map(folder =>
+        this.folderRepository.moveFolder(folder.id, data.targetFolderId || null, newPath, newLevel)
       )
     );
 
@@ -394,5 +399,3 @@ export class FolderService {
     };
   }
 }
-
-export default new FolderService();

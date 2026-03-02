@@ -1,7 +1,8 @@
-import prisma from '@/lib/prisma';
-import type { Folder } from '@/generated/prisma/client';
+import type { Folder, PrismaClient } from '@/generated/prisma/client';
 
 export class FolderRepository {
+  constructor(private prisma: PrismaClient) { }
+
   async createFolder(data: {
     name: string;
     userId: string;
@@ -9,13 +10,13 @@ export class FolderRepository {
     path: string;
     level: number;
   }): Promise<Folder> {
-    return await prisma.folder.create({
+    return await this.prisma.folder.create({
       data,
     });
   }
 
   async getFoldersByParent(userId: string, parentId: string | null) {
-    return await prisma.folder.findMany({
+    return await this.prisma.folder.findMany({
       where: {
         userId,
         parentId: parentId || null,
@@ -26,7 +27,7 @@ export class FolderRepository {
   }
 
   async getFilesByFolder(folderId: string) {
-    return await prisma.file.findMany({
+    return await this.prisma.file.findMany({
       where: {
         folderId,
         isDeleted: false,
@@ -36,7 +37,7 @@ export class FolderRepository {
   }
 
   async getFolderById(id: string, userId: string): Promise<Folder | null> {
-    return await prisma.folder.findFirst({
+    return await this.prisma.folder.findFirst({
       where: {
         id,
         userId,
@@ -46,7 +47,7 @@ export class FolderRepository {
   }
 
   async getFolderWithChildren(id: string, userId: string) {
-    return await prisma.folder.findFirst({
+    return await this.prisma.folder.findFirst({
       where: {
         id,
         userId,
@@ -66,7 +67,7 @@ export class FolderRepository {
   }
 
   async getChildrenFolders(id: string, userId: string) {
-    return await prisma.folder.findMany({
+    return await this.prisma.folder.findMany({
       where: {
         parentId: id,
         userId,
@@ -77,7 +78,7 @@ export class FolderRepository {
   }
 
   async updateFolder(id: string, _userId: string, data: { name: string }): Promise<Folder> {
-    return await prisma.folder.update({
+    return await this.prisma.folder.update({
       where: { id },
       data: {
         ...data,
@@ -87,7 +88,7 @@ export class FolderRepository {
   }
 
   async softDeleteFolder(id: string): Promise<Folder> {
-    return await prisma.folder.update({
+    return await this.prisma.folder.update({
       where: { id },
       data: {
         isDeleted: true,
@@ -97,7 +98,7 @@ export class FolderRepository {
   }
 
   async moveFolder(id: string, targetFolderId: string | null, newPath: string, newLevel: number): Promise<Folder> {
-    return await prisma.folder.update({
+    return await this.prisma.folder.update({
       where: { id },
       data: {
         parentId: targetFolderId,
@@ -112,7 +113,7 @@ export class FolderRepository {
     const folder = await this.getFolderById(folderId, userId);
     if (!folder) return [];
 
-    return await prisma.folder.findMany({
+    return await this.prisma.folder.findMany({
       where: {
         userId,
         path: {
@@ -131,7 +132,7 @@ export class FolderRepository {
     
     if (pathIds.length === 0) return [folder];
 
-    const folders = await prisma.folder.findMany({
+    const folders = await this.prisma.folder.findMany({
       where: {
         id: { in: pathIds },
         userId,
@@ -144,7 +145,7 @@ export class FolderRepository {
   }
 
   async getFolderTree(userId: string) {
-    return await prisma.folder.findMany({
+    return await this.prisma.folder.findMany({
       where: {
         userId,
         isDeleted: false,
@@ -154,7 +155,7 @@ export class FolderRepository {
   }
 
   async countFoldersByUser(userId: string): Promise<number> {
-    return await prisma.folder.count({
+    return await this.prisma.folder.count({
       where: {
         userId,
         isDeleted: false,
@@ -163,7 +164,7 @@ export class FolderRepository {
   }
 
   async getFoldersByIds(ids: string[], userId: string): Promise<Folder[]> {
-    return await prisma.folder.findMany({
+    return await this.prisma.folder.findMany({
       where: {
         id: { in: ids },
         userId,
@@ -173,7 +174,7 @@ export class FolderRepository {
   }
 
   async bulkSoftDelete(ids: string[]): Promise<number> {
-    const result = await prisma.folder.updateMany({
+    const result = await this.prisma.folder.updateMany({
       where: { id: { in: ids } },
       data: {
         isDeleted: true,
@@ -184,7 +185,7 @@ export class FolderRepository {
   }
 
   async checkFolderNameExists(name: string, parentId: string | null, userId: string): Promise<boolean> {
-    const count = await prisma.folder.count({
+    const count = await this.prisma.folder.count({
       where: {
         name,
         parentId: parentId || null,
@@ -195,5 +196,3 @@ export class FolderRepository {
     return count > 0;
   }
 }
-
-export default new FolderRepository();

@@ -1,7 +1,8 @@
-import prisma from '@/lib/prisma';
-import type { File, FileVersion } from '@/generated/prisma/client';
+import type { File, FileVersion, PrismaClient } from '@/generated/prisma/client';
 
 export class FileRepository {
+  constructor(private prisma: PrismaClient) { }
+
   async createFile(data: {
     name: string;
     originalName: string;
@@ -12,7 +13,7 @@ export class FileRepository {
     folderId: string | null;
     thumbnailPath?: string;
   }): Promise<File> {
-    return await prisma.file.create({
+    return await this.prisma.file.create({
       data,
     });
   }
@@ -32,20 +33,20 @@ export class FileRepository {
     }
 
     const [files, total] = await Promise.all([
-      prisma.file.findMany({
+      this.prisma.file.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      prisma.file.count({ where }),
+      this.prisma.file.count({ where }),
     ]);
 
     return { files, total };
   }
 
   async getFileById(id: string, userId: string): Promise<File | null> {
-    return await prisma.file.findFirst({
+    return await this.prisma.file.findFirst({
       where: {
         id,
         userId,
@@ -55,7 +56,7 @@ export class FileRepository {
   }
 
   async updateFile(id: string, data: Partial<File>): Promise<File> {
-    return await prisma.file.update({
+    return await this.prisma.file.update({
       where: { id },
       data: {
         ...data,
@@ -65,7 +66,7 @@ export class FileRepository {
   }
 
   async softDeleteFile(id: string): Promise<File> {
-    return await prisma.file.update({
+    return await this.prisma.file.update({
       where: { id },
       data: {
         isDeleted: true,
@@ -75,14 +76,14 @@ export class FileRepository {
   }
 
   async toggleFavorite(id: string, isFavorite: boolean): Promise<File> {
-    return await prisma.file.update({
+    return await this.prisma.file.update({
       where: { id },
       data: { isFavorite },
     });
   }
 
   async getFilesByIds(ids: string[], userId: string): Promise<File[]> {
-    return await prisma.file.findMany({
+    return await this.prisma.file.findMany({
       where: {
         id: { in: ids },
         userId,
@@ -92,7 +93,7 @@ export class FileRepository {
   }
 
   async bulkSoftDelete(ids: string[]): Promise<number> {
-    const result = await prisma.file.updateMany({
+    const result = await this.prisma.file.updateMany({
       where: { id: { in: ids } },
       data: {
         isDeleted: true,
@@ -103,7 +104,7 @@ export class FileRepository {
   }
 
   async bulkUpdateFolder(ids: string[], folderId: string | null): Promise<number> {
-    const result = await prisma.file.updateMany({
+    const result = await this.prisma.file.updateMany({
       where: { id: { in: ids } },
       data: {
         folderId,
@@ -114,7 +115,7 @@ export class FileRepository {
   }
 
   async bulkToggleFavorite(ids: string[], isFavorite: boolean): Promise<number> {
-    const result = await prisma.file.updateMany({
+    const result = await this.prisma.file.updateMany({
       where: { id: { in: ids } },
       data: { isFavorite },
     });
@@ -128,32 +129,32 @@ export class FileRepository {
     path: string;
     size: bigint;
   }): Promise<FileVersion> {
-    return await prisma.fileVersion.create({
+    return await this.prisma.fileVersion.create({
       data,
     });
   }
 
   async getFileVersions(fileId: string): Promise<FileVersion[]> {
-    return await prisma.fileVersion.findMany({
+    return await this.prisma.fileVersion.findMany({
       where: { fileId },
       orderBy: { version: 'desc' },
     });
   }
 
   async getFileVersionById(versionId: string): Promise<FileVersion | null> {
-    return await prisma.fileVersion.findUnique({
+    return await this.prisma.fileVersion.findUnique({
       where: { id: versionId },
     });
   }
 
   async deleteFileVersion(versionId: string): Promise<void> {
-    await prisma.fileVersion.delete({
+    await this.prisma.fileVersion.delete({
       where: { id: versionId },
     });
   }
 
   async getLatestVersionNumber(fileId: string): Promise<number> {
-    const latestVersion = await prisma.fileVersion.findFirst({
+    const latestVersion = await this.prisma.fileVersion.findFirst({
       where: { fileId },
       orderBy: { version: 'desc' },
       select: { version: true },
@@ -163,7 +164,7 @@ export class FileRepository {
   }
 
   async countFilesByUser(userId: string): Promise<number> {
-    return await prisma.file.count({
+    return await this.prisma.file.count({
       where: {
         userId,
         isDeleted: false,
@@ -172,7 +173,7 @@ export class FileRepository {
   }
 
   async countFilesInFolder(folderId: string): Promise<number> {
-    return await prisma.file.count({
+    return await this.prisma.file.count({
       where: {
         folderId,
         isDeleted: false,
@@ -180,5 +181,3 @@ export class FileRepository {
     });
   }
 }
-
-export default new FileRepository();

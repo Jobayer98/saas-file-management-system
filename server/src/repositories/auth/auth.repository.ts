@@ -1,26 +1,27 @@
-import { User, RefreshToken } from '@/generated/prisma/client';
-import prisma from '@/lib/prisma';
+import { User, RefreshToken, PrismaClient } from '@/generated/prisma/client';
 
 export class AuthRepository {
+  constructor(private prisma: PrismaClient) { }
+
   async createUser(data: {
     email: string;
     password: string;
     name: string;
     emailVerifyToken: string;
   }): Promise<User> {
-    return await prisma.user.create({
+    return await this.prisma.user.create({
       data,
     });
   }
 
   async findUserByEmail(email: string): Promise<User | null> {
-    return await prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: { email },
     });
   }
 
   async findUserById(id: string): Promise<Omit<User, 'password'> | null> {
-    return await prisma.user.findUnique({
+    return await this.prisma.user.findUnique({
       where: { id },
       select: {
         id: true,
@@ -41,13 +42,13 @@ export class AuthRepository {
   }
 
   async verifyEmail(token: string): Promise<User | null> {
-    const user = await prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: { emailVerifyToken: token },
     });
 
     if (!user) return null;
 
-    return await prisma.user.update({
+    return await this.prisma.user.update({
       where: { id: user.id },
       data: {
         isEmailVerified: true,
@@ -57,7 +58,7 @@ export class AuthRepository {
   }
 
   async setPasswordResetToken(email: string, token: string, expiry: Date): Promise<User> {
-    return await prisma.user.update({
+    return await this.prisma.user.update({
       where: { email },
       data: {
         resetPasswordToken: token,
@@ -67,7 +68,7 @@ export class AuthRepository {
   }
 
   async resetPassword(token: string, newPassword: string): Promise<User | null> {
-    const user = await prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: {
         resetPasswordToken: token,
         resetPasswordExpiry: {
@@ -78,7 +79,7 @@ export class AuthRepository {
 
     if (!user) return null;
 
-    return await prisma.user.update({
+    return await this.prisma.user.update({
       where: { id: user.id },
       data: {
         password: newPassword,
@@ -89,7 +90,7 @@ export class AuthRepository {
   }
 
   async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<RefreshToken> {
-    return await prisma.refreshToken.create({
+    return await this.prisma.refreshToken.create({
       data: {
         userId,
         token,
@@ -99,22 +100,20 @@ export class AuthRepository {
   }
 
   async findRefreshToken(token: string): Promise<RefreshToken | null> {
-    return await prisma.refreshToken.findUnique({
+    return await this.prisma.refreshToken.findUnique({
       where: { token },
     });
   }
 
   async deleteRefreshToken(token: string): Promise<void> {
-    await prisma.refreshToken.delete({
+    await this.prisma.refreshToken.delete({
       where: { token },
     });
   }
 
   async deleteUserRefreshTokens(userId: string): Promise<void> {
-    await prisma.refreshToken.deleteMany({
+    await this.prisma.refreshToken.deleteMany({
       where: { userId },
     });
   }
 }
-
-export default new AuthRepository();

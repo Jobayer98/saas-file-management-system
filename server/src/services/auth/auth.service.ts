@@ -1,18 +1,16 @@
-import authRepository from '../../repositories/auth/auth.repository';
-import { hashPassword, comparePassword, generateRandomToken } from '../../utils/helpers/password.helper';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../utils/helpers/jwt.helper';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../../lib/email';
-import { AppError } from '../../middlewares/error/error.middleware';
-import {
-  RegisterInput,
-  LoginInput,
-  ForgotPasswordInput,
-  ResetPasswordInput,
-} from '../../validators/auth/auth.validator';
+import { sendVerificationEmail, sendPasswordResetEmail } from "@/lib/email";
+import { AppError } from "@/middlewares/error/error.middleware";
+import { AuthRepository } from "@/repositories/auth/auth.repository";
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "@/utils/helpers/jwt.helper";
+import { hashPassword, generateRandomToken, comparePassword } from "@/utils/helpers/password.helper";
+import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput } from "@/validators/auth/auth.validator";
+
 
 export class AuthService {
+  constructor(private authRepository: AuthRepository) { }
+
   async register(data: RegisterInput) {
-    const existingUser = await authRepository.findUserByEmail(data.email);
+    const existingUser = await this.authRepository.findUserByEmail(data.email);
     
     if (existingUser) {
       throw new AppError('Email already registered', 400);
@@ -21,7 +19,7 @@ export class AuthService {
     const hashedPassword = await hashPassword(data.password);
     const emailVerifyToken = generateRandomToken();
 
-    const user = await authRepository.createUser({
+    const user = await this.authRepository.createUser({
       email: data.email,
       password: hashedPassword,
       name: data.name,
@@ -38,7 +36,7 @@ export class AuthService {
   }
 
   async login(data: LoginInput) {
-    const user = await authRepository.findUserByEmail(data.email);
+    const user = await this.authRepository.findUserByEmail(data.email);
     
     if (!user) {
       throw new AppError('Invalid credentials', 401);
@@ -66,7 +64,7 @@ export class AuthService {
     // Store refresh token
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
-    await authRepository.createRefreshToken(user.id, refreshToken, expiresAt);
+    await this.authRepository.createRefreshToken(user.id, refreshToken, expiresAt);
 
     return {
       token: accessToken,
@@ -83,7 +81,7 @@ export class AuthService {
 
   async logout(refreshToken: string) {
     try {
-      await authRepository.deleteRefreshToken(refreshToken);
+      await this.authRepository.deleteRefreshToken(refreshToken);
       return { message: 'Logged out successfully' };
     } catch (error) {
       throw new AppError('Invalid refresh token', 400);
@@ -91,7 +89,7 @@ export class AuthService {
   }
 
   async verifyEmail(token: string) {
-    const user = await authRepository.verifyEmail(token);
+    const user = await this.authRepository.verifyEmail(token);
     
     if (!user) {
       throw new AppError('Invalid or expired verification token', 400);
@@ -101,7 +99,7 @@ export class AuthService {
   }
 
   async forgotPassword(data: ForgotPasswordInput) {
-    const user = await authRepository.findUserByEmail(data.email);
+    const user = await this.authRepository.findUserByEmail(data.email);
     
     if (!user) {
       // Don't reveal if email exists
@@ -112,7 +110,7 @@ export class AuthService {
     const expiry = new Date();
     expiry.setHours(expiry.getHours() + 1);
 
-    await authRepository.setPasswordResetToken(data.email, resetToken, expiry);
+    await this.authRepository.setPasswordResetToken(data.email, resetToken, expiry);
     await sendPasswordResetEmail(user.email, resetToken);
 
     return { message: 'If the email exists, a reset link has been sent' };
@@ -120,20 +118,20 @@ export class AuthService {
 
   async resetPassword(data: ResetPasswordInput) {
     const hashedPassword = await hashPassword(data.newPassword);
-    const user = await authRepository.resetPassword(data.token, hashedPassword);
+    const user = await this.authRepository.resetPassword(data.token, hashedPassword);
     
     if (!user) {
       throw new AppError('Invalid or expired reset token', 400);
     }
 
     // Delete all refresh tokens for security
-    await authRepository.deleteUserRefreshTokens(user.id);
+    await this.authRepository.deleteUserRefreshTokens(user.id);
 
     return { message: 'Password reset successfully' };
   }
 
   async refreshAccessToken(refreshToken: string) {
-    const storedToken = await authRepository.findRefreshToken(refreshToken);
+    const storedToken = await this.authRepository.findRefreshToken(refreshToken);
     
     if (!storedToken || storedToken.expiresAt < new Date()) {
       throw new AppError('Invalid or expired refresh token', 401);
@@ -146,7 +144,7 @@ export class AuthService {
   }
 
   async getMe(userId: string) {
-    const user = await authRepository.findUserById(userId);
+    const user = await this.authRepository.findUserById(userId);
     
     if (!user) {
       throw new AppError('User not found', 404);
@@ -155,5 +153,3 @@ export class AuthService {
     return { user };
   }
 }
-
-export default new AuthService();

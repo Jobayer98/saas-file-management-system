@@ -1,9 +1,14 @@
-import userRepository from '../../repositories/admin/user.repository';
-import { AppError } from '../../middlewares/error/error.middleware';
+import { AppError } from "@/middlewares/error/error.middleware";
+import { UserRepository } from "@/repositories/admin/user.repository";
+
 
 export class UserService {
+  constructor(
+    private userRepository: UserRepository,
+  ) { }
+
   async getAllUsers(page: number, limit: number, search?: string) {
-    const { users, total } = await userRepository.getAllUsers(page, limit, search);
+    const { users, total } = await this.userRepository.getAllUsers(page, limit, search);
     
     return {
       users,
@@ -15,13 +20,13 @@ export class UserService {
   }
 
   async getUserById(id: string) {
-    const user = await userRepository.getUserById(id);
+    const user = await this.userRepository.getUserById(id);
     
     if (!user) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    const usage = await userRepository.getUserUsageStats(id);
+    const usage = await this.userRepository.getUserUsageStats(id);
 
     return {
       user,
@@ -35,13 +40,13 @@ export class UserService {
   }
 
   async updateUserRole(id: string, isAdmin: boolean) {
-    const existing = await userRepository.getUserById(id);
+    const existing = await this.userRepository.getUserById(id);
     
     if (!existing) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
     }
 
-    const user = await userRepository.updateUserRole(id, isAdmin);
+    const user = await this.userRepository.updateUserRole(id, isAdmin);
     
     return {
       user: {
@@ -54,7 +59,7 @@ export class UserService {
   }
 
   async suspendUser(id: string, reason: string) {
-    const existing = await userRepository.getUserById(id);
+    const existing = await this.userRepository.getUserById(id);
     
     if (!existing) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
@@ -64,13 +69,13 @@ export class UserService {
       throw new AppError('User is already suspended', 400, 'USER_ALREADY_SUSPENDED');
     }
 
-    await userRepository.suspendUser(id, reason);
+    await this.userRepository.suspendUser(id, reason);
     
     return { message: 'User suspended successfully' };
   }
 
   async activateUser(id: string) {
-    const existing = await userRepository.getUserById(id);
+    const existing = await this.userRepository.getUserById(id);
     
     if (!existing) {
       throw new AppError('User not found', 404, 'USER_NOT_FOUND');
@@ -80,10 +85,8 @@ export class UserService {
       throw new AppError('User is not suspended', 400, 'USER_NOT_SUSPENDED');
     }
 
-    await userRepository.activateUser(id);
+    await this.userRepository.activateUser(id);
     
     return { message: 'User activated successfully' };
   }
 }
-
-export default new UserService();

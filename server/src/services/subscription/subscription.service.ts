@@ -1,12 +1,16 @@
-import subscriptionRepository from '@/repositories/subscription/subscription.repository';
+import { SubscriptionRepository } from '@/repositories/subscription/subscription.repository';
 import { AppError } from '@/middlewares/error/error.middleware';
 
 export class SubscriptionService {
+  constructor(
+    private subscriptionRepository: SubscriptionRepository,
+  ) { }
+
   async getActivePackages() {
-    const packages = await subscriptionRepository.getActivePackages();
+    const packages = await this.subscriptionRepository.getActivePackages();
     
     return {
-      packages: packages.map(pkg => ({
+      packages: packages.map((pkg: any) => ({
         ...pkg,
         maxFileSize: pkg.maxFileSize.toString(),
         totalFileLimit: pkg.totalFileLimit.toString(),
@@ -15,7 +19,7 @@ export class SubscriptionService {
   }
 
   async getCurrentSubscription(userId: string) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (!subscription) {
       return {
@@ -30,7 +34,7 @@ export class SubscriptionService {
       };
     }
 
-    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const totalSizeNum = Number(usage.totalSize);
     const limitNum = Number(subscription.package.totalFileLimit);
     const percentUsed = limitNum > 0 ? (totalSizeNum / limitNum) * 100 : 0;
@@ -58,7 +62,7 @@ export class SubscriptionService {
   }
 
   async selectPackage(userId: string, packageId: number) {
-    const pkg = await subscriptionRepository.getPackageById(packageId);
+    const pkg = await this.subscriptionRepository.getPackageById(packageId);
     
     if (!pkg) {
       throw new AppError('Package not found', 404, 'PACKAGE_NOT_FOUND');
@@ -68,7 +72,7 @@ export class SubscriptionService {
       throw new AppError('Package is not active', 400, 'PACKAGE_INACTIVE');
     }
 
-    const existingSubscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const existingSubscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (existingSubscription) {
       throw new AppError(
@@ -78,7 +82,7 @@ export class SubscriptionService {
       );
     }
 
-    const subscription = await subscriptionRepository.createSubscription(userId, packageId);
+    const subscription = await this.subscriptionRepository.createSubscription(userId, packageId);
     
     return {
       subscription: {
@@ -91,7 +95,7 @@ export class SubscriptionService {
   }
 
   async changePackage(userId: string, newPackageId: number) {
-    const pkg = await subscriptionRepository.getPackageById(newPackageId);
+    const pkg = await this.subscriptionRepository.getPackageById(newPackageId);
     
     if (!pkg) {
       throw new AppError('Package not found', 404, 'PACKAGE_NOT_FOUND');
@@ -101,7 +105,7 @@ export class SubscriptionService {
       throw new AppError('Package is not active', 400, 'PACKAGE_INACTIVE');
     }
 
-    const existingSubscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const existingSubscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (!existingSubscription) {
       throw new AppError(
@@ -115,7 +119,7 @@ export class SubscriptionService {
       throw new AppError('Already subscribed to this package', 400, 'SAME_PACKAGE');
     }
 
-    const subscription = await subscriptionRepository.updateSubscription(userId, newPackageId);
+    const subscription = await this.subscriptionRepository.updateSubscription(userId, newPackageId);
     
     return {
       subscription: {
@@ -129,10 +133,10 @@ export class SubscriptionService {
   }
 
   async getSubscriptionHistory(userId: string, page: number, limit: number) {
-    const { history, total } = await subscriptionRepository.getSubscriptionHistory(userId, page, limit);
+    const { history, total } = await this.subscriptionRepository.getSubscriptionHistory(userId, page, limit);
     
     return {
-      history: history.map(sub => ({
+      history: history.map((sub: any) => ({
         id: sub.id,
         packageName: sub.package.name,
         price: sub.package.price,
@@ -148,13 +152,13 @@ export class SubscriptionService {
   }
 
   async getUsageStats(userId: string) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (!subscription) {
       throw new AppError('No active subscription found', 404, 'NO_SUBSCRIPTION');
     }
 
-    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const totalSizeNum = Number(usage.totalSize);
     const limitNum = Number(subscription.package.totalFileLimit);
     const percentUsed = limitNum > 0 ? (totalSizeNum / limitNum) * 100 : 0;
@@ -168,13 +172,13 @@ export class SubscriptionService {
   }
 
   async getLimits(userId: string) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (!subscription) {
       throw new AppError('No active subscription found', 404, 'NO_SUBSCRIPTION');
     }
 
-    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const pkg = subscription.package;
 
     return {
@@ -198,7 +202,7 @@ export class SubscriptionService {
   }
 
   async cancelSubscription(userId: string) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (!subscription) {
       throw new AppError('No active subscription found', 404, 'NO_SUBSCRIPTION');
@@ -208,7 +212,7 @@ export class SubscriptionService {
       throw new AppError('Subscription is already cancelled', 400, 'ALREADY_CANCELLED');
     }
 
-    const updated = await subscriptionRepository.cancelSubscription(userId);
+    const updated = await this.subscriptionRepository.cancelSubscription(userId);
     
     return {
       message: 'Subscription cancelled successfully',
@@ -217,7 +221,7 @@ export class SubscriptionService {
   }
 
   async renewSubscription(userId: string) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (!subscription) {
       throw new AppError('No subscription found', 404, 'NO_SUBSCRIPTION');
@@ -227,7 +231,7 @@ export class SubscriptionService {
       throw new AppError('Subscription is already active', 400, 'ALREADY_ACTIVE');
     }
 
-    const updated = await subscriptionRepository.renewSubscription(userId);
+    const updated = await this.subscriptionRepository.renewSubscription(userId);
     
     return {
       subscription: {
@@ -239,5 +243,3 @@ export class SubscriptionService {
     };
   }
 }
-
-export default new SubscriptionService();

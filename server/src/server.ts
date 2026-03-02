@@ -5,6 +5,8 @@ import app from './app';
 import logger from './lib/logger';
 import prisma from './lib/prisma';
 import redis from './lib/redis';
+import { bootstrapAdmin } from './utils/bootstrap';
+import { initializeContainer } from './container';
 
 const PORT = process.env.PORT || 5000;
 
@@ -17,6 +19,13 @@ const startServer = async () => {
     // Test Redis connection
     await redis.ping();
     logger.info('✅ Redis connected');
+
+    // Initialize dependency injection container
+    initializeContainer(prisma, redis);
+    logger.info('✅ Dependency container initialized');
+
+    // Bootstrap: Create default admin if not exists
+    await bootstrapAdmin();
 
     // Start server
     app.listen(PORT, () => {

@@ -1,6 +1,3 @@
-import fileRepository from '@/repositories/file/file.repository';
-import folderRepository from '@/repositories/folder/folder.repository';
-import subscriptionRepository from '@/repositories/subscription/subscription.repository';
 import redis from '@/lib/redis';
 import { AppError } from '@/middlewares/error/error.middleware';
 import path from 'path';
@@ -16,12 +13,17 @@ import {
   BulkMoveFilesInput,
   BulkFavoriteFilesInput,
 } from '@/validators/file/file.validator';
+import { SubscriptionRepository } from '@/repositories/subscription/subscription.repository';
+import { FolderRepository } from '@/repositories/folder/folder.repository';
+import { FileRepository } from '@/repositories/file/file.repository';
 
 export class FileService {
+  constructor(private fileRepository: FileRepository, private subscriptionRepository: SubscriptionRepository, private folderRepository: FolderRepository) { }
+
   // Single File Upload
   async uploadFile(userId: string, file: Express.Multer.File, folderId?: string) {
     // Check subscription limits
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
@@ -32,7 +34,7 @@ export class FileService {
     }
 
     // Check total storage limit
-    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const newTotalSize = Number(usage.totalSize) + file.size;
     if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
       throw new AppError('Storage limit exceeded', 403, 'STORAGE_LIMIT_EXCEEDED');
@@ -40,12 +42,12 @@ export class FileService {
 
     // Check folder exists and files per folder limit
     if (folderId) {
-      const folder = await folderRepository.getFolderById(folderId, userId);
+      const folder = await this.folderRepository.getFolderById(folderId, userId);
       if (!folder) {
         throw new AppError('Folder not found', 404, 'FOLDER_NOT_FOUND');
       }
 
-      const filesInFolder = await fileRepository.countFilesInFolder(folderId);
+      const filesInFolder = await this.fileRepository.countFilesInFolder(folderId);
       if (filesInFolder >= subscription.package.filesPerFolder) {
         throw new AppError('Files per folder limit reached', 403, 'FILES_PER_FOLDER_LIMIT');
       }
@@ -58,7 +60,7 @@ export class FileService {
     }
 
     // Create file record
-    const uploadedFile = await fileRepository.createFile({
+    const uploadedFile = await this.fileRepository.createFile({
       name: file.filename,
       originalName: file.originalname,
       mimeType: file.mimetype,
@@ -78,7 +80,7 @@ export class FileService {
 
   // Multi File Upload
   async uploadMultipleFiles(userId: string, files: Express.Multer.File[], folderId?: string) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
@@ -106,7 +108,7 @@ export class FileService {
 
   // Initialize Chunked Upload
   async initChunkUpload(userId: string, data: InitChunkUploadInput) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
@@ -117,7 +119,7 @@ export class FileService {
     }
 
     // Check storage limit
-    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const newTotalSize = Number(usage.totalSize) + data.fileSize;
     if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
       throw new AppError('Storage limit exceeded', 403, 'STORAGE_LIMIT_EXCEEDED');
@@ -192,7 +194,7 @@ export class FileService {
     writeStream.end();
 
     // Create file record
-    const file = await fileRepository.createFile({
+    const file = await this.fileRepository.createFile({
       name: path.basename(finalPath),
       originalName: metadata.fileName,
       mimeType: metadata.fileType,
@@ -215,7 +217,7 @@ export class FileService {
 
   // Generate Upload URL (for direct S3 upload - placeholder)
   async generateUploadUrl(userId: string, _data: UploadUrlInput) {
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
@@ -254,7 +256,7 @@ export class FileService {
 
   // Get Files
   async getFiles(userId: string, folderId?: string, page: number = 1, limit: number = 10) {
-    const { files, total } = await fileRepository.getFilesByFolder(
+    const { files, total } = await this.fileRepository.getFilesByFolder(
       folderId || null,
       userId,
       page,
@@ -275,7 +277,7 @@ export class FileService {
 
   // Get File by ID
   async getFileById(userId: string, fileId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
@@ -296,7 +298,7 @@ export class FileService {
 
   // Download File
   async getDownloadUrl(userId: string, fileId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
@@ -309,22 +311,22 @@ export class FileService {
 
   // Get Preview URL
   async getPreviewUrl(userId: string, fileId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
     const previewUrl = `/files/preview/${fileId}`;
-    const type = file.mimeType.startsWith('image/') ? 'image' : 
-                 file.mimeType.startsWith('video/') ? 'video' :
-                 file.mimeType === 'application/pdf' ? 'pdf' : 'other';
+    const type = file.mimeType.startsWith('image/') ? 'image' :
+      file.mimeType.startsWith('video/') ? 'video' :
+        file.mimeType === 'application/pdf' ? 'pdf' : 'other';
 
     return { previewUrl, type };
   }
 
   // Get Thumbnail URL
   async getThumbnailUrl(userId: string, fileId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
@@ -336,12 +338,12 @@ export class FileService {
 
   // Rename File
   async renameFile(userId: string, fileId: string, data: RenameFileInput) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    const updatedFile = await fileRepository.updateFile(fileId, {
+    const updatedFile = await this.fileRepository.updateFile(fileId, {
       originalName: data.newName,
     });
 
@@ -355,40 +357,40 @@ export class FileService {
 
   // Delete File
   async deleteFile(userId: string, fileId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    await fileRepository.softDeleteFile(fileId);
+    await this.fileRepository.softDeleteFile(fileId);
 
     return { message: 'File moved to trash' };
   }
 
   // Move File
   async moveFile(userId: string, fileId: string, data: MoveFileInput) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
     if (data.targetFolderId) {
-      const folder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      const folder = await this.folderRepository.getFolderById(data.targetFolderId, userId);
       if (!folder) {
         throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
       }
 
       // Check files per folder limit
-      const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+      const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
       if (subscription) {
-        const filesInFolder = await fileRepository.countFilesInFolder(data.targetFolderId);
+        const filesInFolder = await this.fileRepository.countFilesInFolder(data.targetFolderId);
         if (filesInFolder >= subscription.package.filesPerFolder) {
           throw new AppError('Files per folder limit reached', 403, 'FILES_PER_FOLDER_LIMIT');
         }
       }
     }
 
-    const movedFile = await fileRepository.updateFile(fileId, {
+    const movedFile = await this.fileRepository.updateFile(fileId, {
       folderId: data.targetFolderId,
     });
 
@@ -402,25 +404,25 @@ export class FileService {
 
   // Copy File
   async copyFile(userId: string, fileId: string, data: CopyFileInput) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
     // Check subscription limits
-    const subscription = await subscriptionRepository.getCurrentSubscription(userId);
+    const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
       throw new AppError('No active subscription found', 403, 'NO_SUBSCRIPTION');
     }
 
-    const usage = await subscriptionRepository.getUserUsageStats(userId);
+    const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const newTotalSize = Number(usage.totalSize) + Number(file.size);
     if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
       throw new AppError('Storage limit exceeded', 403, 'STORAGE_LIMIT_EXCEEDED');
     }
 
     if (data.targetFolderId) {
-      const folder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      const folder = await this.folderRepository.getFolderById(data.targetFolderId, userId);
       if (!folder) {
         throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
       }
@@ -431,7 +433,7 @@ export class FileService {
     fs.copyFileSync(file.path, copyPath);
 
     // Create new file record
-    const copiedFile = await fileRepository.createFile({
+    const copiedFile = await this.fileRepository.createFile({
       name: `copy_${file.name}`,
       originalName: `Copy of ${file.originalName}`,
       mimeType: file.mimeType,
@@ -451,19 +453,19 @@ export class FileService {
 
   // Toggle Favorite
   async toggleFavorite(userId: string, fileId: string, isFavorite: boolean) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    await fileRepository.toggleFavorite(fileId, isFavorite);
+    await this.fileRepository.toggleFavorite(fileId, isFavorite);
 
     return { isFavorite };
   }
 
   // Share File (placeholder - actual sharing in Phase 6)
   async shareFile(userId: string, fileId: string, data: ShareFileInput) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
@@ -489,7 +491,7 @@ export class FileService {
 
   // Delete Share
   async deleteShare(userId: string, fileId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
@@ -500,12 +502,12 @@ export class FileService {
 
   // Bulk Delete Files
   async bulkDeleteFiles(userId: string, data: BulkDeleteFilesInput) {
-    const files = await fileRepository.getFilesByIds(data.fileIds, userId);
+    const files = await this.fileRepository.getFilesByIds(data.fileIds, userId);
     if (files.length === 0) {
       throw new AppError('No files found', 404, 'FILES_NOT_FOUND');
     }
 
-    const deletedCount = await fileRepository.bulkSoftDelete(data.fileIds);
+    const deletedCount = await this.fileRepository.bulkSoftDelete(data.fileIds);
 
     return {
       message: 'Files moved to trash',
@@ -516,19 +518,19 @@ export class FileService {
 
   // Bulk Move Files
   async bulkMoveFiles(userId: string, data: BulkMoveFilesInput) {
-    const files = await fileRepository.getFilesByIds(data.fileIds, userId);
+    const files = await this.fileRepository.getFilesByIds(data.fileIds, userId);
     if (files.length === 0) {
       throw new AppError('No files found', 404, 'FILES_NOT_FOUND');
     }
 
     if (data.targetFolderId) {
-      const folder = await folderRepository.getFolderById(data.targetFolderId, userId);
+      const folder = await this.folderRepository.getFolderById(data.targetFolderId, userId);
       if (!folder) {
         throw new AppError('Target folder not found', 404, 'TARGET_FOLDER_NOT_FOUND');
       }
     }
 
-    const movedCount = await fileRepository.bulkUpdateFolder(data.fileIds, data.targetFolderId);
+    const movedCount = await this.fileRepository.bulkUpdateFolder(data.fileIds, data.targetFolderId);
 
     return {
       message: 'Files moved successfully',
@@ -539,12 +541,12 @@ export class FileService {
 
   // Bulk Favorite Files
   async bulkFavoriteFiles(userId: string, data: BulkFavoriteFilesInput) {
-    const files = await fileRepository.getFilesByIds(data.fileIds, userId);
+    const files = await this.fileRepository.getFilesByIds(data.fileIds, userId);
     if (files.length === 0) {
       throw new AppError('No files found', 404, 'FILES_NOT_FOUND');
     }
 
-    const count = await fileRepository.bulkToggleFavorite(data.fileIds, true);
+    const count = await this.fileRepository.bulkToggleFavorite(data.fileIds, true);
 
     return {
       message: 'Files marked as favorite',
@@ -554,12 +556,12 @@ export class FileService {
 
   // File Versions
   async getFileVersions(userId: string, fileId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    const versions = await fileRepository.getFileVersions(fileId);
+    const versions = await this.fileRepository.getFileVersions(fileId);
 
     return {
       versions: versions.map(v => ({
@@ -570,15 +572,15 @@ export class FileService {
   }
 
   async createFileVersion(userId: string, fileId: string, newFile: Express.Multer.File) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    const latestVersion = await fileRepository.getLatestVersionNumber(fileId);
+    const latestVersion = await this.fileRepository.getLatestVersionNumber(fileId);
     const newVersion = latestVersion + 1;
 
-    const version = await fileRepository.createFileVersion({
+    const version = await this.fileRepository.createFileVersion({
       fileId,
       version: newVersion,
       path: newFile.path,
@@ -594,12 +596,12 @@ export class FileService {
   }
 
   async restoreFileVersion(userId: string, fileId: string, versionId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    const version = await fileRepository.getFileVersionById(versionId);
+    const version = await this.fileRepository.getFileVersionById(versionId);
     if (!version || version.fileId !== fileId) {
       throw new AppError('Version not found', 404, 'VERSION_NOT_FOUND');
     }
@@ -607,7 +609,7 @@ export class FileService {
     // Copy version file to current file
     fs.copyFileSync(version.path, file.path);
 
-    await fileRepository.updateFile(fileId, {
+    await this.fileRepository.updateFile(fileId, {
       size: version.size,
       updatedAt: new Date(),
     });
@@ -621,12 +623,12 @@ export class FileService {
   }
 
   async deleteFileVersion(userId: string, fileId: string, versionId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    const version = await fileRepository.getFileVersionById(versionId);
+    const version = await this.fileRepository.getFileVersionById(versionId);
     if (!version || version.fileId !== fileId) {
       throw new AppError('Version not found', 404, 'VERSION_NOT_FOUND');
     }
@@ -636,18 +638,18 @@ export class FileService {
       fs.unlinkSync(version.path);
     }
 
-    await fileRepository.deleteFileVersion(versionId);
+    await this.fileRepository.deleteFileVersion(versionId);
 
     return { message: 'Version deleted successfully' };
   }
 
   async getVersionDownloadUrl(userId: string, fileId: string, versionId: string) {
-    const file = await fileRepository.getFileById(fileId, userId);
+    const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError('File not found', 404, 'FILE_NOT_FOUND');
     }
 
-    const version = await fileRepository.getFileVersionById(versionId);
+    const version = await this.fileRepository.getFileVersionById(versionId);
     if (!version || version.fileId !== fileId) {
       throw new AppError('Version not found', 404, 'VERSION_NOT_FOUND');
     }
@@ -657,5 +659,3 @@ export class FileService {
     return { downloadUrl, file: version.path };
   }
 }
-
-export default new FileService();

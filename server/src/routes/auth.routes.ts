@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import authController from '../controllers/auth/auth.controller';
+import { getContainer } from '../container';
 import { validate } from '../middlewares/validation/validate.middleware';
 import { authenticate } from '../middlewares/auth/auth.middleware';
 import {
@@ -13,13 +13,16 @@ import {
 
 const router = Router();
 
-router.post('/register', validate(registerSchema), authController.register);
-router.post('/login', validate(loginSchema), authController.login);
-router.post('/logout', authController.logout);
-router.post('/verify-email', validate(verifyEmailSchema), authController.verifyEmail);
-router.post('/forgot-password', validate(forgotPasswordSchema), authController.forgotPassword);
-router.post('/reset-password', validate(resetPasswordSchema), authController.resetPassword);
-router.post('/refresh-token', validate(refreshTokenSchema), authController.refreshToken);
-router.get('/me', authenticate, authController.getMe);
+// Lazy getter for controller
+const getController = () => getContainer().authController;
+
+router.post('/register', validate(registerSchema), (req, res, next) => getController().register(req, res, next));
+router.post('/login', validate(loginSchema), (req, res, next) => getController().login(req, res, next));
+router.post('/logout', (req, res, next) => getController().logout(req, res, next));
+router.post('/verify-email', validate(verifyEmailSchema), (req, res, next) => getController().verifyEmail(req, res, next));
+router.post('/forgot-password', validate(forgotPasswordSchema), (req, res, next) => getController().forgotPassword(req, res, next));
+router.post('/reset-password', validate(resetPasswordSchema), (req, res, next) => getController().resetPassword(req, res, next));
+router.post('/refresh-token', validate(refreshTokenSchema), (req, res, next) => getController().refreshToken(req, res, next));
+router.get('/me', authenticate, (req, res, next) => getController().getMe(req, res, next));
 
 export default router;

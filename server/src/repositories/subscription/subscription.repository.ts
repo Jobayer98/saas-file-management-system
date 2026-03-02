@@ -1,16 +1,17 @@
-import prisma from '@/lib/prisma';
-import type { Subscription } from '@/generated/prisma/client';
+import type { Subscription, PrismaClient } from '@/generated/prisma/client';
 
 export class SubscriptionRepository {
+  constructor(private prisma: PrismaClient) { }
+
   async getActivePackages() {
-    return await prisma.package.findMany({
+    return await this.prisma.package.findMany({
       where: { isActive: true },
       orderBy: { price: 'asc' },
     });
   }
 
   async getCurrentSubscription(userId: string) {
-    return await prisma.subscription.findUnique({
+    return await this.prisma.subscription.findUnique({
       where: { userId },
       include: {
         package: true,
@@ -19,7 +20,7 @@ export class SubscriptionRepository {
   }
 
   async createSubscription(userId: string, packageId: number): Promise<Subscription> {
-    return await prisma.subscription.create({
+    return await this.prisma.subscription.create({
       data: {
         userId,
         packageId,
@@ -29,7 +30,7 @@ export class SubscriptionRepository {
   }
 
   async updateSubscription(userId: string, packageId: number): Promise<Subscription> {
-    return await prisma.subscription.update({
+    return await this.prisma.subscription.update({
       where: { userId },
       data: {
         packageId,
@@ -43,7 +44,7 @@ export class SubscriptionRepository {
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + 30); // Grace period of 30 days
 
-    return await prisma.subscription.update({
+    return await this.prisma.subscription.update({
       where: { userId },
       data: {
         isActive: false,
@@ -53,7 +54,7 @@ export class SubscriptionRepository {
   }
 
   async renewSubscription(userId: string): Promise<Subscription> {
-    return await prisma.subscription.update({
+    return await this.prisma.subscription.update({
       where: { userId },
       data: {
         isActive: true,
@@ -66,7 +67,7 @@ export class SubscriptionRepository {
   async getSubscriptionHistory(userId: string, _page: number, _limit: number) {
     // For now, we'll return the current subscription as history
     // In a real app, you'd have a separate SubscriptionHistory table
-    const subscription = await prisma.subscription.findUnique({
+    const subscription = await this.prisma.subscription.findUnique({
       where: { userId },
       include: {
         package: true,
@@ -85,13 +86,13 @@ export class SubscriptionRepository {
 
   async getUserUsageStats(userId: string) {
     const [fileCount, folderCount, totalSizeResult] = await Promise.all([
-      prisma.file.count({
+      this.prisma.file.count({
         where: { userId, isDeleted: false },
       }),
-      prisma.folder.count({
+      this.prisma.folder.count({
         where: { userId, isDeleted: false },
       }),
-      prisma.file.aggregate({
+      this.prisma.file.aggregate({
         where: { userId, isDeleted: false },
         _sum: { size: true },
       }),
@@ -105,10 +106,8 @@ export class SubscriptionRepository {
   }
 
   async getPackageById(packageId: number) {
-    return await prisma.package.findUnique({
+    return await this.prisma.package.findUnique({
       where: { id: packageId },
     });
   }
 }
-
-export default new SubscriptionRepository();

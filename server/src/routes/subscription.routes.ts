@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import subscriptionController from '@/controllers/subscription/subscription.controller';
+import { getContainer } from '@/container';
 import { authenticate } from '@/middlewares/auth/auth.middleware';
 import { validate } from '@/middlewares/validation/validate.middleware';
 import {
@@ -12,15 +12,18 @@ const router = Router();
 // Apply authentication to all routes
 router.use(authenticate);
 
+// Lazy getter for controller
+const getController = () => getContainer().subscriptionController;
+
 // Subscription Routes
-router.get('/packages', subscriptionController.getActivePackages);
-router.get('/current', subscriptionController.getCurrentSubscription);
-router.post('/select', validate(selectPackageSchema), subscriptionController.selectPackage);
-router.put('/change', validate(changePackageSchema), subscriptionController.changePackage);
-router.get('/history', subscriptionController.getSubscriptionHistory);
-router.get('/usage', subscriptionController.getUsageStats);
-router.get('/limits', subscriptionController.getLimits);
-router.post('/cancel', subscriptionController.cancelSubscription);
-router.post('/renew', subscriptionController.renewSubscription);
+router.get('/packages', (req, res, next) => getController().getActivePackages(req, res, next));
+router.get('/current', (req, res, next) => getController().getCurrentSubscription(req, res, next));
+router.post('/select', validate(selectPackageSchema), (req, res, next) => getController().selectPackage(req, res, next));
+router.put('/change', validate(changePackageSchema), (req, res, next) => getController().changePackage(req, res, next));
+router.get('/history', (req, res, next) => getController().getSubscriptionHistory(req, res, next));
+router.get('/usage', (req, res, next) => getController().getUsageStats(req, res, next));
+router.get('/limits', (req, res, next) => getController().getLimits(req, res, next));
+router.post('/cancel', (req, res, next) => getController().cancelSubscription(req, res, next));
+router.post('/renew', (req, res, next) => getController().renewSubscription(req, res, next));
 
 export default router;
