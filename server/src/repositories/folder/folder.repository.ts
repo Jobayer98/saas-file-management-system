@@ -1,4 +1,4 @@
-import type { Folder, PrismaClient } from '@/generated/prisma/client';
+import type { Folder, PrismaClient } from '@prisma/client';
 
 export class FolderRepository {
   constructor(private prisma: PrismaClient) { }

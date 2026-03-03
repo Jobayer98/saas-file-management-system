@@ -1,4 +1,4 @@
-import type { File, FileVersion, PrismaClient } from '@/generated/prisma/client';
+import type { File, FileVersion, PrismaClient } from '@prisma/client';
 
 export class FileRepository {
   constructor(private prisma: PrismaClient) { }

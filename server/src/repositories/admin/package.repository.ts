@@ -1,4 +1,4 @@
-import { Package, PrismaClient } from '@/generated/prisma/client';
+import { Package, PrismaClient } from '@prisma/client';
 import { CreatePackageInput, UpdatePackageInput } from '@/validators/admin/package.validator';
 
 export class PackageRepository {

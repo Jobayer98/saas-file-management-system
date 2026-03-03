@@ -1,4 +1,4 @@
-import type { Subscription, PrismaClient } from '@/generated/prisma/client';
+import type { Subscription, PrismaClient } from '@prisma/client';
 
 export class SubscriptionRepository {
   constructor(private prisma: PrismaClient) { }

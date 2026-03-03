@@ -1,5 +1,3 @@
-import { PrismaClient } from "@/generated/prisma/client";
-
 // Repositories
 import { AuthRepository } from '@/repositories/auth/auth.repository';
 import { PackageRepository } from '@/repositories/admin/package.repository';
@@ -29,6 +27,7 @@ import { SubscriptionController } from '@/controllers/subscription/subscription.
 import { FolderController } from '@/controllers/folder/folder.controller';
 import { FileController } from '@/controllers/file/file.controller';
 import { DashboardController } from '@/controllers/dashboard/dashboard.controller';
+import { PrismaClient } from '@prisma/client';
 
 export class Container {
   // Infrastructure

@@ -1,4 +1,4 @@
-import { User, RefreshToken, PrismaClient } from '@/generated/prisma/client';
+import { User, RefreshToken, PrismaClient } from '@prisma/client';
 
 export class AuthRepository {
   constructor(private prisma: PrismaClient) { }

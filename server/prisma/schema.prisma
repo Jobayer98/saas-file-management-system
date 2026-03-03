@@ -1,9 +1,5 @@
-
-
-// This setup for prisma v7 don't change client and db datasource
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
