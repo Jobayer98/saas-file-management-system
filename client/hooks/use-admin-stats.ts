@@ -11,8 +11,11 @@ interface AdminDashboardStats extends AdminOverviewStats {
 export function useAdminStats() {
   const [stats, setStats] = useState<AdminDashboardStats>({
     totalUsers: 0,
+    activeUsers: 0,
     activeSubscriptions: 0,
-    totalStorage: '0',
+    totalStorage: 0,
+    totalFiles: 0,
+    totalFolders: 0,
     popularPackages: [],
     loading: true,
     error: null,

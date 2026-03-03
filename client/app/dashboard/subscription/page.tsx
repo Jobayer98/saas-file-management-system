@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { subscriptionService } from "@/lib/api/services";
 import { Package, Subscription, UsageStats } from "@/types";
+import { getDisplayName } from "@/lib/package-mapping";
 import {
   Card,
   CardContent,
@@ -176,7 +177,9 @@ export default function SubscriptionPage() {
                 <PackageIcon className="h-6 w-6 text-primary-foreground" />
               </div>
               <div>
-                <h3 className="text-2xl font-bold">{currentPackage?.name}</h3>
+                <h3 className="text-2xl font-bold">
+                  {getDisplayName(currentPackage?.name as any)}
+                </h3>
                 <p className="text-muted-foreground">
                   {currentPackage?.description}
                 </p>
@@ -333,7 +336,7 @@ export default function SubscriptionPage() {
               >
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle>{pkg.name}</CardTitle>
+                    <CardTitle>{getDisplayName(pkg.name as any)}</CardTitle>
                     {currentPackage?.id === pkg.id && (
                       <Badge>Current Plan</Badge>
                     )}

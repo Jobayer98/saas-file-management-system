@@ -139,7 +139,7 @@ export default function LoginPage() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => quickLogin("john@gmail.com", "password123")}
+                onClick={() => quickLogin("john@example.com", "password123")}
                 disabled={isLoading}
                 className="w-full"
               >

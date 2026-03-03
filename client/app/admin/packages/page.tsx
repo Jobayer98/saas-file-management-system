@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { adminService } from "@/lib/api/services/admin.service";
+import { getDisplayName } from "@/lib/package-mapping";
 import {
   Card,
   CardContent,
@@ -310,7 +311,7 @@ export default function AdminPackagesPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <CardTitle className="flex items-center space-x-2">
-                      <span>{pkg.name}</span>
+                      <span>{getDisplayName(pkg.name as any)}</span>
                       {!pkg.isActive && (
                         <Badge variant="secondary">Inactive</Badge>
                       )}
