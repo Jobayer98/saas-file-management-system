@@ -1,4 +1,4 @@
-import { Prisma } from "@/generated/prisma/client";
+import { Prisma } from "@prisma/client";
 import { Response } from "express";
 import { ZodError } from "zod";
 import { ResponseUtil } from "../response";
