@@ -4,7 +4,6 @@ dotenv.config();
 import app from './app';
 import logger from './lib/logger';
 import prisma from './lib/prisma';
-import redis from './lib/redis';
 import { bootstrapAdmin } from './utils/bootstrap';
 import { initializeContainer } from './container';
 
@@ -16,12 +15,8 @@ const startServer = async () => {
     await prisma.$connect();
     logger.info('✅ Database connected');
 
-    // Test Redis connection
-    await redis.ping();
-    logger.info('✅ Redis connected');
-
     // Initialize dependency injection container
-    initializeContainer(prisma, redis);
+    initializeContainer(prisma);
     logger.info('✅ Dependency container initialized');
 
     // Bootstrap: Create default admin if not exists
@@ -43,14 +38,12 @@ const startServer = async () => {
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
   await prisma.$disconnect();
-  await redis.quit();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
   await prisma.$disconnect();
-  await redis.quit();
   process.exit(0);
 });
 

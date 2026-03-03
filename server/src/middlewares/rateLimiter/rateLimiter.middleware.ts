@@ -1,12 +1,7 @@
 import rateLimit from 'express-rate-limit';
-import RedisStore from 'rate-limit-redis';
-import redis from '@/lib/redis';
 
 // General API rate limiter
 export const generalRateLimit = rateLimit({
-  store: new RedisStore({
-    sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
-  }),
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 1000, // Limit each IP to 1000 requests per windowMs
   message: {
@@ -22,9 +17,6 @@ export const generalRateLimit = rateLimit({
 
 // File upload rate limiter (more restrictive)
 export const uploadRateLimit = rateLimit({
-  store: new RedisStore({
-    sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
-  }),
   windowMs: 60 * 1000, // 1 minute
   max: 10, // Limit each IP to 10 uploads per minute
   message: {
@@ -40,9 +32,6 @@ export const uploadRateLimit = rateLimit({
 
 // Folder/File creation rate limiter
 export const creationRateLimit = rateLimit({
-  store: new RedisStore({
-    sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
-  }),
   windowMs: 60 * 1000, // 1 minute
   max: 30, // Limit each IP to 30 creations per minute
   message: {
@@ -58,9 +47,6 @@ export const creationRateLimit = rateLimit({
 
 // Bulk operations rate limiter (very restrictive)
 export const bulkOperationRateLimit = rateLimit({
-  store: new RedisStore({
-    sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
-  }),
   windowMs: 5 * 60 * 1000, // 5 minutes
   max: 5, // Limit each IP to 5 bulk operations per 5 minutes
   message: {
@@ -77,9 +63,6 @@ export const bulkOperationRateLimit = rateLimit({
 // User-specific rate limiter (based on user ID)
 export const createUserRateLimit = (windowMs: number, max: number, keyGenerator?: (req: any) => string) => {
   return rateLimit({
-    store: new RedisStore({
-      sendCommand: (...args: string[]) => redis.call(args[0], ...args.slice(1)) as any,
-    }),
     windowMs,
     max,
     keyGenerator: keyGenerator || ((req: any) => req.user?.id || req.ip),

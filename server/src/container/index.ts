@@ -1,5 +1,4 @@
 import { PrismaClient } from "@/generated/prisma/client";
-import { Redis } from 'ioredis';
 
 // Repositories
 import { AuthRepository } from '@/repositories/auth/auth.repository';
@@ -34,7 +33,6 @@ import { DashboardController } from '@/controllers/dashboard/dashboard.controlle
 export class Container {
   // Infrastructure
   private _prisma: PrismaClient;
-  private _redis: Redis;
 
   // Repositories
   private _authRepository?: AuthRepository;
@@ -66,18 +64,13 @@ export class Container {
   private _fileController?: FileController;
   private _dashboardController?: DashboardController;
 
-  constructor(prisma: PrismaClient, redis: Redis) {
+  constructor(prisma: PrismaClient) {
     this._prisma = prisma;
-    this._redis = redis;
   }
 
   // Infrastructure getters
   get prisma(): PrismaClient {
     return this._prisma;
-  }
-
-  get redis(): Redis {
-    return this._redis;
   }
 
   // Repository getters
@@ -264,9 +257,9 @@ export class Container {
 // Singleton instance
 let containerInstance: Container | null = null;
 
-export function initializeContainer(prisma: PrismaClient, redis: Redis): Container {
+export function initializeContainer(prisma: PrismaClient): Container {
   if (!containerInstance) {
-    containerInstance = new Container(prisma, redis);
+    containerInstance = new Container(prisma);
   }
   return containerInstance;
 }
