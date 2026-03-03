@@ -7,7 +7,7 @@ import { RegisterInput, LoginInput, ForgotPasswordInput, ResetPasswordInput } fr
 
 
 export class AuthService {
-  constructor(private authRepository: AuthRepository) { }
+  constructor(private authRepository: AuthRepository,) { }
 
   async register(data: RegisterInput) {
     const existingUser = await this.authRepository.findUserByEmail(data.email);
@@ -19,7 +19,7 @@ export class AuthService {
     const hashedPassword = await hashPassword(data.password);
     const emailVerifyToken = generateRandomToken();
 
-    const user = await this.authRepository.createUser({
+    const user = await this.authRepository.createUserWithFreeSubscription({
       email: data.email,
       password: hashedPassword,
       name: data.name,
@@ -27,7 +27,7 @@ export class AuthService {
     });
 
     // Send verification email
-    await sendVerificationEmail(user.email, emailVerifyToken);
+    // await sendVerificationEmail(user.email, emailVerifyToken);
 
     return {
       message: 'Registration successful. Please check your email to verify your account.',

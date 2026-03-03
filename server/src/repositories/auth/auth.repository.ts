@@ -14,6 +14,40 @@ export class AuthRepository {
     });
   }
 
+  async createUserWithFreeSubscription(data: {
+    email: string;
+    password: string;
+    name: string;
+    emailVerifyToken: string;
+  }): Promise<User> {
+    // Find the Free package
+    const freePackage = await this.prisma.package.findFirst({
+      where: { name: 'Free', isActive: true },
+    });
+
+    if (!freePackage) {
+      throw new Error('Free package not found. Please run database seed.');
+    }
+
+    // Create user and subscription in a transaction
+    return await this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data,
+      });
+
+      await tx.subscription.create({
+        data: {
+          userId: user.id,
+          packageId: freePackage.id,
+          isActive: true,
+        },
+      });
+
+      return user;
+    });
+  }
+
+
   async findUserByEmail(email: string): Promise<User | null> {
     return await this.prisma.user.findUnique({
       where: { email },

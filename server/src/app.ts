@@ -7,6 +7,7 @@ import swaggerUi from 'swagger-ui-express';
 import routes from './routes';
 import { errorHandler, notFound } from './middlewares/error/error.middleware';
 import { swaggerSpec } from './config/swagger/swagger.config';
+import { generalRateLimit } from './middlewares/rateLimiter';
 
 const app: Application = express();
 
@@ -18,6 +19,10 @@ app.use(cors({
 }));
 app.use(compression());
 app.use(morgan('dev'));
+
+// Global rate limiting
+app.use(generalRateLimit);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

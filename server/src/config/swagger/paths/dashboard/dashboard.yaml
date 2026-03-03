@@ -1,0 +1,34 @@
+/dashboard/stats:
+  get:
+    tags:
+      - Dashboard
+    summary: Get user dashboard statistics
+    description: Retrieve comprehensive dashboard statistics including file counts, storage usage, subscription info, and recent files
+    responses:
+      200:
+        description: Dashboard stats retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  example: "Dashboard stats retrieved successfully"
+                data:
+                  $ref: "#/components/schemas/DashboardStats"
+      401:
+        description: Unauthorized - Invalid or missing authentication token
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+      500:
+        description: Internal server error
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"

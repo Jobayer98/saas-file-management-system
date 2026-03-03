@@ -267,3 +267,45 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    # Dashboard Schemas
+    DashboardStats:
+      type: object
+      properties:
+        totalFiles:
+          type: number
+          description: Total number of files owned by the user
+          example: 25
+        totalFolders:
+          type: number
+          description: Total number of folders owned by the user
+          example: 8
+        storageUsed:
+          type: string
+          description: Formatted string showing total storage used
+          example: "2.5 MB"
+        subscriptionType:
+          type: string
+          description: User's current subscription plan name
+          example: "Premium"
+        recentFiles:
+          type: array
+          description: List of 5 most recently updated files
+          items:
+            allOf:
+              - $ref: "#/components/schemas/File"
+              - type: object
+                properties:
+                  folder:
+                    type: object
+                    nullable: true
+                    description: Parent folder information (null if in root)
+                    properties:
+                      name:
+                        type: string
+                        description: Folder name
+                        example: "Documents"
+                      path:
+                        type: string
+                        description: Full folder path
+                        example: "/Documents"

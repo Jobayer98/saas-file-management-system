@@ -78,6 +78,10 @@ const options: swaggerJsdoc.Options = {
         name: 'Files - Versions',
         description: 'File versioning endpoints',
       },
+      {
+        name: 'Dashboard',
+        description: 'User dashboard statistics and overview endpoints',
+      },
     ],
   },
   apis: [

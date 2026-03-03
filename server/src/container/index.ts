@@ -9,6 +9,7 @@ import { StatsRepository } from '@/repositories/admin/stats.repository';
 import { SubscriptionRepository } from '@/repositories/subscription/subscription.repository';
 import { FolderRepository } from '@/repositories/folder/folder.repository';
 import { FileRepository } from '@/repositories/file/file.repository';
+import { DashboardRepository } from '@/repositories/dashboard/dashboard.repository';
 
 // Services
 import { AuthService } from '@/services/auth/auth.service';
@@ -18,6 +19,7 @@ import { StatsService } from '@/services/admin/stats.service';
 import { SubscriptionService } from '@/services/subscription/subscription.service';
 import { FolderService } from '@/services/folder/folder.service';
 import { FileService } from '@/services/file/file.service';
+import { DashboardService } from '@/services/dashboard/dashboard.service';
 
 // Controllers
 import { AuthController } from '@/controllers/auth/auth.controller';
@@ -27,6 +29,7 @@ import { StatsController } from '@/controllers/admin/stats.controller';
 import { SubscriptionController } from '@/controllers/subscription/subscription.controller';
 import { FolderController } from '@/controllers/folder/folder.controller';
 import { FileController } from '@/controllers/file/file.controller';
+import { DashboardController } from '@/controllers/dashboard/dashboard.controller';
 
 export class Container {
   // Infrastructure
@@ -41,6 +44,7 @@ export class Container {
   private _subscriptionRepository?: SubscriptionRepository;
   private _folderRepository?: FolderRepository;
   private _fileRepository?: FileRepository;
+  private _dashboardRepository?: DashboardRepository;
 
   // Services
   private _authService?: AuthService;
@@ -50,6 +54,7 @@ export class Container {
   private _subscriptionService?: SubscriptionService;
   private _folderService?: FolderService;
   private _fileService?: FileService;
+  private _dashboardService?: DashboardService;
 
   // Controllers
   private _authController?: AuthController;
@@ -59,6 +64,7 @@ export class Container {
   private _subscriptionController?: SubscriptionController;
   private _folderController?: FolderController;
   private _fileController?: FileController;
+  private _dashboardController?: DashboardController;
 
   constructor(prisma: PrismaClient, redis: Redis) {
     this._prisma = prisma;
@@ -124,6 +130,13 @@ export class Container {
     return this._fileRepository;
   }
 
+  get dashboardRepository(): DashboardRepository {
+    if (!this._dashboardRepository) {
+      this._dashboardRepository = new DashboardRepository(this._prisma);
+    }
+    return this._dashboardRepository;
+  }
+
   // Service getters
   get authService(): AuthService {
     if (!this._authService) {
@@ -183,6 +196,13 @@ export class Container {
     return this._fileService;
   }
 
+  get dashboardService(): DashboardService {
+    if (!this._dashboardService) {
+      this._dashboardService = new DashboardService(this.dashboardRepository);
+    }
+    return this._dashboardService;
+  }
+
   // Controller getters
   get authController(): AuthController {
     if (!this._authController) {
@@ -231,6 +251,13 @@ export class Container {
       this._fileController = new FileController(this.fileService);
     }
     return this._fileController;
+  }
+
+  get dashboardController(): DashboardController {
+    if (!this._dashboardController) {
+      this._dashboardController = new DashboardController(this.dashboardService);
+    }
+    return this._dashboardController;
   }
 }
 
