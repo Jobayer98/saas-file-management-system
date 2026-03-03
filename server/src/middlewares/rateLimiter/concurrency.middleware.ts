@@ -1,5 +1,5 @@
 import redis from '@/lib/redis';
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { AppError } from '@/middlewares/error/error.middleware';
 import { AuthRequest } from '@/types';
 
@@ -14,7 +14,6 @@ export const concurrencyLimit = (options: ConcurrencyOptions) => {
 
   return async (req: AuthRequest, res: Response, next: NextFunction) => {
     const key = keyGenerator ? keyGenerator(req) : `concurrency:${req.user?.id || req.ip}`;
-    const lockKey = `${key}:lock`;
     const countKey = `${key}:count`;
 
     try {
