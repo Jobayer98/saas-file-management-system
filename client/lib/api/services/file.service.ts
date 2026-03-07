@@ -78,9 +78,17 @@ export const fileService = {
     return response.data;
   },
 
-  async getPreviewUrl(id: string): Promise<{ previewUrl: string; type: string }> {
+  async getPreviewUrl(id: string): Promise<{ previewUrl: string; type: string; mimeType: string }> {
     const response = await apiClient.get(`/files/${id}/preview`);
-    return response.data.data;
+    const data = response.data.data;
+
+    // For PDFs, if the preview URL is not a proper HTTP URL, use the download endpoint
+    if (data.mimeType === 'application/pdf' && data.previewUrl && !data.previewUrl.startsWith('http')) {
+      console.log('PDF preview URL is not HTTP, using download endpoint:', data.previewUrl);
+      data.previewUrl = `/api/files/${id}/download`;
+    }
+
+    return data;
   },
 
   async getThumbnailUrl(id: string): Promise<string> {
