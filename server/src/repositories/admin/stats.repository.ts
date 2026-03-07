@@ -1,32 +1,33 @@
 import { PrismaClient } from "@prisma/client";
 
 export class StatsRepository {
-  constructor(private prisma: PrismaClient) { }
+  constructor(private prisma: PrismaClient) {}
 
   async getOverviewStats() {
-    const [totalUsers, activeSubscriptions, totalStorageResult, packages] = await Promise.all([
-      this.prisma.user.count(),
-      this.prisma.subscription.count({ where: { isActive: true } }),
-      this.prisma.file.aggregate({
-        where: { isDeleted: false },
-        _sum: { size: true },
-      }),
-      this.prisma.package.findMany({
-        include: {
-          _count: {
-            select: { subscriptions: true },
+    const [totalUsers, activeSubscriptions, totalStorageResult, packages] =
+      await Promise.all([
+        this.prisma.user.count(),
+        this.prisma.subscription.count({ where: { isActive: true } }),
+        this.prisma.file.aggregate({
+          where: { isDeleted: false },
+          _sum: { size: true },
+        }),
+        this.prisma.package.findMany({
+          include: {
+            _count: {
+              select: { subscriptions: true },
+            },
           },
-        },
-        orderBy: {
-          subscriptions: {
-            _count: 'desc',
+          orderBy: {
+            subscriptions: {
+              _count: "desc",
+            },
           },
-        },
-        take: 5,
-      }),
-    ]);
+          take: 5,
+        }),
+      ]);
 
-    const popularPackages = packages.map(pkg => ({
+    const popularPackages = packages.map((pkg) => ({
       id: pkg.id,
       name: pkg.name,
       price: pkg.price,
@@ -60,7 +61,7 @@ export class StatsRepository {
       },
     });
 
-    const revenue = subscriptions.map(sub => ({
+    const revenue = subscriptions.map((sub) => ({
       date: sub.startDate,
       amount: sub.package.price,
       packageName: sub.package.name,
@@ -91,31 +92,39 @@ export class StatsRepository {
             where: { isDeleted: false },
             select: { size: true },
           },
+          folders: {
+            where: { isDeleted: false },
+          },
         },
       }),
       this.prisma.file.groupBy({
-        by: ['createdAt'],
+        by: ["createdAt"],
         where: { isDeleted: false },
         _sum: { size: true },
         _count: true,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         take: 30,
       }),
     ]);
 
     const topUsersWithStorage = topUsers
-      .map(user => ({
+      .map((user) => ({
         id: user.id,
         name: user.name,
         email: user.email,
-        totalStorage: user.files.reduce((sum, file) => sum + Number(file.size), 0),
+        totalStorage: user.files.reduce(
+          (sum, file) => sum + Number(file.size),
+          0,
+        ),
+        totalFiles: user.files.length,
+        totalFolders: user.folders.length,
       }))
       .sort((a, b) => b.totalStorage - a.totalStorage)
       .slice(0, 10);
 
     return {
       topUsers: topUsersWithStorage,
-      storageTrend: storageTrend.map(item => ({
+      storageTrend: storageTrend.map((item) => ({
         date: item.createdAt,
         size: item._sum.size || BigInt(0),
         fileCount: item._count,
