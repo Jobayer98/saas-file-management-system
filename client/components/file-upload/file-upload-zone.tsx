@@ -43,6 +43,7 @@ interface FileUploadZoneProps {
   maxFileSize?: number; // in bytes
   acceptedFileTypes?: string[];
   className?: string;
+  disabled?: boolean;
 }
 
 const CHUNK_SIZE = 5 * 1024 * 1024; // 5MB chunks
@@ -56,6 +57,7 @@ export function FileUploadZone({
   maxFileSize = 100 * 1024 * 1024, // 100MB default
   acceptedFileTypes,
   className,
+  disabled = false,
 }: FileUploadZoneProps) {
   const [uploadFiles, setUploadFiles] = useState<UploadFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -87,7 +89,7 @@ export function FileUploadZone({
     accept: acceptedFileTypes
       ? acceptedFileTypes.reduce((acc, type) => ({ ...acc, [type]: [] }), {})
       : undefined,
-    disabled: isUploading,
+    disabled: isUploading || disabled,
   });
 
   const uploadFile = async (uploadFile: UploadFile) => {
@@ -336,13 +338,22 @@ export function FileUploadZone({
               isDragActive
                 ? "border-primary bg-primary/5"
                 : "border-muted-foreground/25 hover:border-primary/50",
-              isUploading && "pointer-events-none opacity-50",
+              (isUploading || disabled) && "pointer-events-none opacity-50",
             )}
           >
             <input {...getInputProps()} />
             <UploadIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
             {isDragActive ? (
               <p className="text-lg font-medium">Drop files here...</p>
+            ) : disabled ? (
+              <div className="space-y-2">
+                <p className="text-lg font-medium text-muted-foreground">
+                  Upload disabled
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Storage limit reached or insufficient permissions
+                </p>
+              </div>
             ) : (
               <div className="space-y-2">
                 <p className="text-lg font-medium">
@@ -371,6 +382,7 @@ export function FileUploadZone({
                   onClick={startUploads}
                   disabled={
                     isUploading ||
+                    disabled ||
                     uploadFiles.every((f) => f.status !== "pending")
                   }
                   size="sm"
