@@ -1,33 +1,33 @@
 // Repositories
-import { AuthRepository } from '@/repositories/auth/auth.repository';
-import { PackageRepository } from '@/repositories/admin/package.repository';
-import { UserRepository } from '@/repositories/admin/user.repository';
-import { StatsRepository } from '@/repositories/admin/stats.repository';
-import { SubscriptionRepository } from '@/repositories/subscription/subscription.repository';
-import { FolderRepository } from '@/repositories/folder/folder.repository';
-import { FileRepository } from '@/repositories/file/file.repository';
-import { DashboardRepository } from '@/repositories/dashboard/dashboard.repository';
+import { AuthRepository } from "@/repositories/auth/auth.repository";
+import { PackageRepository } from "@/repositories/admin/package.repository";
+import { UserRepository } from "@/repositories/admin/user.repository";
+import { StatsRepository } from "@/repositories/admin/stats.repository";
+import { SubscriptionRepository } from "@/repositories/subscription/subscription.repository";
+import { FolderRepository } from "@/repositories/folder/folder.repository";
+import { FileRepository } from "@/repositories/file/file.repository";
+import { DashboardRepository } from "@/repositories/dashboard/dashboard.repository";
 
 // Services
-import { AuthService } from '@/services/auth/auth.service';
-import { PackageService } from '@/services/admin/package.service';
-import { UserService } from '@/services/admin/user.service';
-import { StatsService } from '@/services/admin/stats.service';
-import { SubscriptionService } from '@/services/subscription/subscription.service';
-import { FolderService } from '@/services/folder/folder.service';
-import { FileService } from '@/services/file/file.service';
-import { DashboardService } from '@/services/dashboard/dashboard.service';
+import { AuthService } from "@/services/auth/auth.service";
+import { PackageService } from "@/services/admin/package.service";
+import { UserService } from "@/services/admin/user.service";
+import { StatsService } from "@/services/admin/stats.service";
+import { SubscriptionService } from "@/services/subscription/subscription.service";
+import { FolderService } from "@/services/folder/folder.service";
+import { FileService } from "@/services/file/file.service";
+import { DashboardService } from "@/services/dashboard/dashboard.service";
 
 // Controllers
-import { AuthController } from '@/controllers/auth/auth.controller';
-import { PackageController } from '@/controllers/admin/package.controller';
-import { UserController } from '@/controllers/admin/user.controller';
-import { StatsController } from '@/controllers/admin/stats.controller';
-import { SubscriptionController } from '@/controllers/subscription/subscription.controller';
-import { FolderController } from '@/controllers/folder/folder.controller';
-import { FileController } from '@/controllers/file/file.controller';
-import { DashboardController } from '@/controllers/dashboard/dashboard.controller';
-import { PrismaClient } from '@prisma/client';
+import { AuthController } from "@/controllers/auth/auth.controller";
+import { PackageController } from "@/controllers/admin/package.controller";
+import { UserController } from "@/controllers/admin/user.controller";
+import { StatsController } from "@/controllers/admin/stats.controller";
+import { SubscriptionController } from "@/controllers/subscription/subscription.controller";
+import { FolderController } from "@/controllers/folder/folder.controller";
+import { FileController } from "@/controllers/file/file.controller";
+import { DashboardController } from "@/controllers/dashboard/dashboard.controller";
+import { PrismaClient } from "@prisma/client";
 
 export class Container {
   // Infrastructure
@@ -171,6 +171,7 @@ export class Container {
     if (!this._folderService) {
       this._folderService = new FolderService(
         this.folderRepository,
+        this.fileRepository,
         this.subscriptionRepository,
       );
     }
@@ -182,7 +183,7 @@ export class Container {
       this._fileService = new FileService(
         this.fileRepository,
         this.subscriptionRepository,
-        this.folderRepository
+        this.folderRepository,
       );
     }
     return this._fileService;
@@ -226,7 +227,9 @@ export class Container {
 
   get subscriptionController(): SubscriptionController {
     if (!this._subscriptionController) {
-      this._subscriptionController = new SubscriptionController(this.subscriptionService);
+      this._subscriptionController = new SubscriptionController(
+        this.subscriptionService,
+      );
     }
     return this._subscriptionController;
   }
@@ -247,7 +250,9 @@ export class Container {
 
   get dashboardController(): DashboardController {
     if (!this._dashboardController) {
-      this._dashboardController = new DashboardController(this.dashboardService);
+      this._dashboardController = new DashboardController(
+        this.dashboardService,
+      );
     }
     return this._dashboardController;
   }
@@ -265,7 +270,9 @@ export function initializeContainer(prisma: PrismaClient): Container {
 
 export function getContainer(): Container {
   if (!containerInstance) {
-    throw new Error('Container not initialized. Call initializeContainer first.');
+    throw new Error(
+      "Container not initialized. Call initializeContainer first.",
+    );
   }
   return containerInstance;
 }

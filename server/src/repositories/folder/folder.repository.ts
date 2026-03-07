@@ -1,7 +1,7 @@
-import type { Folder, PrismaClient } from '@prisma/client';
+import type { Folder, PrismaClient } from "@prisma/client";
 
 export class FolderRepository {
-  constructor(private prisma: PrismaClient) { }
+  constructor(private prisma: PrismaClient) {}
 
   async createFolder(data: {
     name: string;
@@ -22,7 +22,7 @@ export class FolderRepository {
         parentId: parentId || null,
         isDeleted: false,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -32,7 +32,7 @@ export class FolderRepository {
         folderId,
         isDeleted: false,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
@@ -56,11 +56,11 @@ export class FolderRepository {
       include: {
         children: {
           where: { isDeleted: false },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         },
         files: {
           where: { isDeleted: false },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
         },
       },
     });
@@ -73,11 +73,15 @@ export class FolderRepository {
         userId,
         isDeleted: false,
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
     });
   }
 
-  async updateFolder(id: string, _userId: string, data: { name: string }): Promise<Folder> {
+  async updateFolder(
+    id: string,
+    _userId: string,
+    data: { name: string },
+  ): Promise<Folder> {
     return await this.prisma.folder.update({
       where: { id },
       data: {
@@ -97,7 +101,12 @@ export class FolderRepository {
     });
   }
 
-  async moveFolder(id: string, targetFolderId: string | null, newPath: string, newLevel: number): Promise<Folder> {
+  async moveFolder(
+    id: string,
+    targetFolderId: string | null,
+    newPath: string,
+    newLevel: number,
+  ): Promise<Folder> {
     return await this.prisma.folder.update({
       where: { id },
       data: {
@@ -128,8 +137,8 @@ export class FolderRepository {
     const folder = await this.getFolderById(folderId, userId);
     if (!folder) return [];
 
-    const pathIds = folder.path.split('/').filter(id => id);
-    
+    const pathIds = folder.path.split("/").filter((id) => id);
+
     if (pathIds.length === 0) return [folder];
 
     const folders = await this.prisma.folder.findMany({
@@ -138,7 +147,7 @@ export class FolderRepository {
         userId,
         isDeleted: false,
       },
-      orderBy: { level: 'asc' },
+      orderBy: { level: "asc" },
     });
 
     return [...folders, folder];
@@ -150,7 +159,7 @@ export class FolderRepository {
         userId,
         isDeleted: false,
       },
-      orderBy: [{ level: 'asc' }, { createdAt: 'desc' }],
+      orderBy: [{ level: "asc" }, { createdAt: "desc" }],
     });
   }
 
@@ -184,7 +193,11 @@ export class FolderRepository {
     return result.count;
   }
 
-  async checkFolderNameExists(name: string, parentId: string | null, userId: string): Promise<boolean> {
+  async checkFolderNameExists(
+    name: string,
+    parentId: string | null,
+    userId: string,
+  ): Promise<boolean> {
     const count = await this.prisma.folder.count({
       where: {
         name,
