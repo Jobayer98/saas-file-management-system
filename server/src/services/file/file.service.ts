@@ -15,6 +15,7 @@ import {
 import { SubscriptionRepository } from "@/repositories/subscription/subscription.repository";
 import { FolderRepository } from "@/repositories/folder/folder.repository";
 import { FileRepository } from "@/repositories/file/file.repository";
+import { CloudinaryService } from "@/services/cloudinary/cloudinary.service";
 
 // In-memory store for upload sessions
 interface UploadSession {
@@ -44,11 +45,15 @@ setInterval(
 );
 
 export class FileService {
+  private cloudinaryService: CloudinaryService;
+
   constructor(
     private fileRepository: FileRepository,
     private subscriptionRepository: SubscriptionRepository,
     private folderRepository: FolderRepository,
-  ) {}
+  ) {
+    this.cloudinaryService = new CloudinaryService();
+  }
 
   // Single File Upload
   async uploadFile(
@@ -133,13 +138,19 @@ export class FileService {
       mimeType = mimeMap[ext] || mimeType;
     }
 
+    // Upload to Cloudinary
+    const { url: cloudinaryUrl, publicId } = await this.cloudinaryService.uploadFile(
+      file.path,
+      `users/${userId}/files`,
+    );
+
     // Create file record
     const uploadedFile = await this.fileRepository.createFile({
       name: file.filename,
       originalName: file.originalname,
       mimeType,
       size: BigInt(file.size),
-      path: file.path,
+      path: cloudinaryUrl,
       userId,
       folderId: folderId || null,
     });
@@ -148,6 +159,8 @@ export class FileService {
       file: {
         ...uploadedFile,
         size: uploadedFile.size.toString(),
+        url: cloudinaryUrl,
+        publicId,
       },
     };
   }
@@ -158,6 +171,10 @@ export class FileService {
     files: Express.Multer.File[],
     folderId?: string,
   ) {
+    if (!files || files.length === 0) {
+      throw new AppError("No files provided", 400, "NO_FILES");
+    }
+
     const subscription =
       await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
@@ -176,16 +193,23 @@ export class FileService {
         const result = await this.uploadFile(userId, file, folderId);
         uploadedFiles.push(result.file);
       } catch (error: any) {
+        console.error(`Failed to upload ${file.originalname}:`, error.message);
         failedFiles.push({
           filename: file.originalname,
           error: error.message,
         });
+        // Clean up temp file if exists
+        if (file.path && fs.existsSync(file.path)) {
+          fs.unlinkSync(file.path);
+        }
       }
     }
 
     return {
       files: uploadedFiles,
       failed: failedFiles,
+      success: uploadedFiles.length,
+      total: files.length,
     };
   }
 
@@ -381,10 +405,8 @@ export class FileService {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
-    // In production, generate signed URL for S3
-    const downloadUrl = `/files/download/${fileId}`;
-
-    return { downloadUrl, file: file.path };
+    // Return Cloudinary URL directly
+    return { downloadUrl: file.path, fileName: file.originalName };
   }
 
   // Get Preview URL
@@ -394,7 +416,6 @@ export class FileService {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
-    const previewUrl = `/files/preview/${fileId}`;
     const type = file.mimeType.startsWith("image/")
       ? "image"
       : file.mimeType.startsWith("video/")
@@ -403,7 +424,7 @@ export class FileService {
           ? "pdf"
           : "other";
 
-    return { previewUrl, type };
+    return { previewUrl: file.path, type, mimeType: file.mimeType };
   }
 
   // Get Thumbnail URL
@@ -413,9 +434,24 @@ export class FileService {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
-    const thumbnailUrl = file.thumbnailPath || `/files/thumbnail/${fileId}`;
+    // Generate thumbnail from Cloudinary URL
+    let thumbnailUrl = file.thumbnailPath;
+    if (!thumbnailUrl && file.mimeType.startsWith("image/")) {
+      thumbnailUrl = await this.cloudinaryService.getOptimizedUrl(
+        this.extractPublicId(file.path),
+        300,
+        300,
+      );
+    }
 
-    return { thumbnailUrl };
+    return { thumbnailUrl: thumbnailUrl || file.path };
+  }
+
+  // Helper to extract publicId from Cloudinary URL
+  private extractPublicId(url: string): string {
+    const parts = url.split('/');
+    const filename = parts[parts.length - 1];
+    return parts.slice(-3, -1).join('/') + '/' + filename.split('.')[0];
   }
 
   // Rename File
@@ -442,6 +478,16 @@ export class FileService {
     const file = await this.fileRepository.getFileById(fileId, userId);
     if (!file) {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
+    }
+
+    // Delete from Cloudinary if URL exists
+    if (file.path && file.path.includes('cloudinary')) {
+      try {
+        const publicId = this.extractPublicId(file.path);
+        await this.cloudinaryService.deleteFile(publicId);
+      } catch (error) {
+        console.error('Failed to delete from Cloudinary:', error);
+      }
     }
 
     await this.fileRepository.softDeleteFile(fileId);
@@ -505,7 +551,6 @@ export class FileService {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
-    // Check subscription limits
     const subscription =
       await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
@@ -540,20 +585,13 @@ export class FileService {
       }
     }
 
-    // Copy file on disk
-    const copyPath = file.path.replace(
-      path.basename(file.path),
-      `copy_${path.basename(file.path)}`,
-    );
-    fs.copyFileSync(file.path, copyPath);
-
-    // Create new file record
+    // Create new file record with same Cloudinary URL
     const copiedFile = await this.fileRepository.createFile({
       name: `copy_${file.name}`,
       originalName: `Copy of ${file.originalName}`,
       mimeType: file.mimeType,
       size: file.size,
-      path: copyPath,
+      path: file.path,
       userId,
       folderId: data.targetFolderId || null,
     });
