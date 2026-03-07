@@ -16,6 +16,7 @@ import {
   GridIcon,
   ListIcon,
   SearchIcon,
+  AlertCircleIcon,
 } from "lucide-react";
 import {
   Dialog,
@@ -29,6 +30,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { folderService } from "@/lib/api/services";
 import { toast } from "sonner";
+import { useSubscription } from "@/hooks/use-subscription";
+import { formatBytes, calculateRemainingStorage } from "@/lib/format-utils";
 
 export default function FilesPage() {
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -41,6 +44,10 @@ export default function FilesPage() {
   const [actionLoading, setActionLoading] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Get subscription data for dynamic upload limits
+  const { data: subscriptionData, isLoading: subscriptionLoading } =
+    useSubscription();
 
   const handleUploadComplete = (files: any[]) => {
     setRefreshKey((prev) => prev + 1);
@@ -178,14 +185,101 @@ export default function FilesPage() {
             <Card>
               <CardHeader>
                 <CardTitle>Upload Files</CardTitle>
+                {subscriptionData && (
+                  <div className="text-sm text-muted-foreground space-y-1">
+                    <p>
+                      Plan:{" "}
+                      <span className="font-medium capitalize">
+                        {subscriptionData.package.name}
+                      </span>
+                    </p>
+                    <p>
+                      Storage:{" "}
+                      <span className="font-medium">
+                        {formatBytes(
+                          parseInt(subscriptionData.usage.totalSize.toString()),
+                        )}{" "}
+                        /{" "}
+                        {formatBytes(
+                          parseInt(
+                            subscriptionData.package.totalFileLimit.toString(),
+                          ),
+                        )}
+                      </span>{" "}
+                      ({subscriptionData.usage.percentUsed.toFixed(1)}% used)
+                    </p>
+                    <p>
+                      Remaining:{" "}
+                      <span className="font-medium">
+                        {formatBytes(
+                          calculateRemainingStorage(
+                            subscriptionData.package.totalFileLimit,
+                            subscriptionData.usage.totalSize,
+                          ),
+                        )}
+                      </span>
+                    </p>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
-                <FileUploadZone
-                  folderId={currentFolderId || undefined}
-                  onUploadComplete={handleUploadComplete}
-                  maxFiles={10}
-                  maxFileSize={50 * 1024 * 1024} // 50MB for quick upload
-                />
+                {subscriptionLoading ? (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+                    <span className="ml-2 text-muted-foreground">
+                      Loading subscription details...
+                    </span>
+                  </div>
+                ) : subscriptionData ? (
+                  <>
+                    {calculateRemainingStorage(
+                      subscriptionData.package.totalFileLimit,
+                      subscriptionData.usage.totalSize,
+                    ) <= 0 && (
+                      <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                        <div className="flex items-center space-x-2 text-orange-800">
+                          <AlertCircleIcon className="h-4 w-4" />
+                          <p className="text-sm">
+                            <strong>Storage Full:</strong> You've reached your
+                            storage limit.
+                            <Button
+                              variant="link"
+                              className="p-0 ml-1 text-orange-600"
+                              onClick={() =>
+                                window.open("/dashboard/subscription", "_blank")
+                              }
+                            >
+                              Upgrade your plan
+                            </Button>
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <FileUploadZone
+                      folderId={currentFolderId || undefined}
+                      onUploadComplete={handleUploadComplete}
+                      maxFiles={subscriptionData.package.filesPerFolder}
+                      maxFileSize={parseInt(
+                        subscriptionData.package.maxFileSize.toString(),
+                      )}
+                      disabled={
+                        calculateRemainingStorage(
+                          subscriptionData.package.totalFileLimit,
+                          subscriptionData.usage.totalSize,
+                        ) <= 0
+                      }
+                    />
+                  </>
+                ) : (
+                  <div className="flex items-center justify-center p-8">
+                    <div className="text-center">
+                      <AlertCircleIcon className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+                      <p className="text-muted-foreground">
+                        Unable to load subscription details
+                      </p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           )}
