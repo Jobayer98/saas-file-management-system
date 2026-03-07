@@ -30,8 +30,6 @@ import {
   History,
 } from "lucide-react";
 
-import { LANDING_PAGE_PACKAGES } from "@/lib/package-mapping";
-
 interface PricingPlan {
   id: string;
   name: string;
@@ -45,7 +43,83 @@ interface PricingPlan {
   maxFolders: number;
 }
 
-const pricingPlans: PricingPlan[] = LANDING_PAGE_PACKAGES;
+const pricingPlans: PricingPlan[] = [
+  {
+    id: "free",
+    name: "free",
+    displayName: "Free",
+    price: 0,
+    description: "Perfect for personal use",
+    maxStorage: "1GB",
+    maxFiles: "100 files",
+    maxFolders: 10,
+    features: [
+      "1GB storage",
+      "Up to 100 files",
+      "10 folders maximum",
+      "Basic file sharing",
+      "Web access",
+    ],
+  },
+  {
+    id: "basic",
+    name: "basic",
+    displayName: "Basic",
+    price: 9,
+    description: "Great for small teams",
+    maxStorage: "10GB",
+    maxFiles: "1,000 files",
+    maxFolders: 50,
+    popular: true,
+    features: [
+      "10GB storage",
+      "Up to 1,000 files",
+      "50 folders maximum",
+      "Advanced sharing",
+      "Priority support",
+      "Mobile apps",
+    ],
+  },
+  {
+    id: "pro",
+    name: "pro",
+    displayName: "Pro",
+    price: 29,
+    description: "For growing businesses",
+    maxStorage: "100GB",
+    maxFiles: "10,000 files",
+    maxFolders: 200,
+    features: [
+      "100GB storage",
+      "Up to 10,000 files",
+      "200 folders maximum",
+      "Team collaboration",
+      "Advanced security",
+      "API access",
+      "Custom branding",
+    ],
+  },
+  {
+    id: "enterprise",
+    name: "enterprise",
+    displayName: "Enterprise",
+    price: 99,
+    description: "For large organizations",
+    maxStorage: "1TB",
+    maxFiles: "Unlimited files",
+    maxFolders: 1000,
+    features: [
+      "1TB storage",
+      "Unlimited files",
+      "1000 folders maximum",
+      "Advanced admin controls",
+      "SSO integration",
+      "Dedicated support",
+      "Custom integrations",
+      "Compliance features",
+    ],
+  },
+];
 
 export default function Home() {
   const { isAuthenticated, isLoading, user } = useAuth();

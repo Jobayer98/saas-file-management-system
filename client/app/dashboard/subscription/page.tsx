@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { subscriptionService } from "@/lib/api/services";
 import { Package, Subscription, UsageStats } from "@/types";
-import { getDisplayName } from "@/lib/package-mapping";
 import {
   Card,
   CardContent,
@@ -40,6 +39,12 @@ export default function SubscriptionPage() {
   const [showChangeDialog, setShowChangeDialog] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<Package | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Simple function to get display name for packages
+  const getDisplayName = (name: string) => {
+    if (!name) return "";
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
 
   useEffect(() => {
     loadData();

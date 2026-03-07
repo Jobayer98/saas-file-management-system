@@ -202,7 +202,12 @@ export default function AdminStatisticsPage() {
                 <span className="font-medium">Total Revenue</span>
               </div>
               <span className="text-2xl font-bold">
-                {formatCurrency(revenueStats?.totalRevenue || 0)}
+                {formatCurrency(
+                  revenueStats?.breakdown.reduce(
+                    (acc: number, item: any) => acc + item.revenue,
+                    0,
+                  ) || 0,
+                )}
               </span>
             </div>
 
@@ -289,7 +294,7 @@ export default function AdminStatisticsPage() {
                       {user.email}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {user.fileCount} files, {user.folderCount} folders
+                      {user.totalFiles} files, {user.totalFolders} folders
                     </p>
                   </div>
                   <div className="text-right">
