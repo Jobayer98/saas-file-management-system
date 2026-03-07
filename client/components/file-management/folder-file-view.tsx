@@ -44,8 +44,10 @@ import {
   SearchIcon,
   ArrowUpIcon,
   ArrowDownIcon,
+  EyeIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FilePreviewModal } from "@/components/file-preview";
 
 interface FolderFileViewProps {
   folderId?: string | null;
@@ -82,6 +84,10 @@ export function FolderFileView({
   } | null>(null);
   const [newName, setNewName] = useState("");
   const [actionLoading, setActionLoading] = useState(false);
+
+  // File preview states
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     loadContent();
@@ -275,6 +281,23 @@ export function FolderFileView({
     setRenamingItem({ id, name, type });
     setNewName(name);
     setShowRenameDialog(true);
+  };
+
+  const handlePreviewFile = (file: FileItem) => {
+    setPreviewFile(file);
+    setIsPreviewOpen(true);
+  };
+
+  const handleClosePreview = () => {
+    setIsPreviewOpen(false);
+    setPreviewFile(null);
+  };
+
+  const handleFileUpdate = (updatedFile: FileItem) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === updatedFile.id ? updatedFile : f)),
+    );
+    setPreviewFile(updatedFile);
   };
 
   const getFileIcon = (mimeType: string, fileUrl?: string) => {
@@ -484,6 +507,7 @@ export function FolderFileView({
                     <TableRow
                       key={`file-${file.id}`}
                       className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => handlePreviewFile(file)}
                     >
                       <TableCell onClick={(e) => e.stopPropagation()}>
                         <Checkbox />
@@ -533,6 +557,12 @@ export function FolderFileView({
                             className="bg-white text-gray-900"
                             align="end"
                           >
+                            <DropdownMenuItem
+                              onClick={() => handlePreviewFile(file)}
+                            >
+                              <EyeIcon className="h-4 w-4 mr-2" />
+                              Preview
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDownloadFile(file)}
                             >
@@ -660,6 +690,7 @@ export function FolderFileView({
                 <div
                   key={`file-${file.id}`}
                   className="group relative border rounded-lg p-4 hover:bg-muted/50 cursor-pointer transition-colors"
+                  onClick={() => handlePreviewFile(file)}
                 >
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <DropdownMenu>
@@ -679,6 +710,12 @@ export function FolderFileView({
                         className="bg-white text-gray-900"
                         align="end"
                       >
+                        <DropdownMenuItem
+                          onClick={() => handlePreviewFile(file)}
+                        >
+                          <EyeIcon className="h-4 w-4 mr-2" />
+                          Preview
+                        </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => handleDownloadFile(file)}
                         >
@@ -784,6 +821,14 @@ export function FolderFileView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        file={previewFile}
+        isOpen={isPreviewOpen}
+        onClose={handleClosePreview}
+        onFileUpdate={handleFileUpdate}
+      />
     </div>
   );
 }

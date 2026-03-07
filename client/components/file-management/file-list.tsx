@@ -42,6 +42,7 @@ import {
   SearchIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FilePreviewModal } from "@/components/file-preview";
 
 interface FileListProps {
   folderId?: string;
@@ -65,6 +66,8 @@ export function FileList({
   const [searchQuery, setSearchQuery] = useState("");
   const [sortField, setSortField] = useState<SortField>("name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   useEffect(() => {
     loadFiles();
@@ -224,6 +227,24 @@ export function FileList({
     }
   };
 
+  const handlePreviewFile = (file: FileItem) => {
+    setPreviewFile(file);
+    setIsPreviewOpen(true);
+    onFileSelect?.(file);
+  };
+
+  const handleClosePreview = () => {
+    setIsPreviewOpen(false);
+    setPreviewFile(null);
+  };
+
+  const handleFileUpdate = (updatedFile: FileItem) => {
+    setFiles((prev) =>
+      prev.map((f) => (f.id === updatedFile.id ? updatedFile : f)),
+    );
+    setPreviewFile(updatedFile);
+  };
+
   const getFileIcon = (mimeType: string) => {
     if (mimeType.startsWith("image/")) return <ImageIcon className="h-4 w-4" />;
     if (mimeType.startsWith("video/")) return <VideoIcon className="h-4 w-4" />;
@@ -367,7 +388,7 @@ export function FileList({
                 <TableRow
                   key={file.id}
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => onFileSelect?.(file)}
+                  onClick={() => handlePreviewFile(file)}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <Checkbox
@@ -413,7 +434,9 @@ export function FileList({
                           <DownloadIcon className="h-4 w-4 mr-2" />
                           Download
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onFileSelect?.(file)}>
+                        <DropdownMenuItem
+                          onClick={() => handlePreviewFile(file)}
+                        >
                           <EyeIcon className="h-4 w-4 mr-2" />
                           Preview
                         </DropdownMenuItem>
@@ -451,6 +474,14 @@ export function FileList({
           </TableBody>
         </Table>
       </div>
+
+      {/* File Preview Modal */}
+      <FilePreviewModal
+        file={previewFile}
+        isOpen={isPreviewOpen}
+        onClose={handleClosePreview}
+        onFileUpdate={handleFileUpdate}
+      />
     </div>
   );
 }
