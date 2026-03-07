@@ -70,8 +70,8 @@ export interface Package {
   maxFolders: number;
   maxNestingLevel: number;
   allowedFileTypes: string[];
-  maxFileSize: number;
-  totalFileLimit: number;
+  maxFileSize: string | number; // Can be string from API
+  totalFileLimit: string | number; // Can be string from API
   filesPerFolder: number;
   price: number;
   isActive: boolean;
@@ -95,7 +95,7 @@ export interface Subscription {
 export interface UsageStats {
   fileCount: number;
   folderCount: number;
-  totalSize: number;
+  totalSize: string | number; // Can be string from API
   percentUsed: number;
 }
 
