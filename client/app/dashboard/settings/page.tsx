@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth/context";
+import { userService } from "@/lib/api/services";
 import {
   Card,
   CardContent,
@@ -24,11 +25,17 @@ import {
   LogOutIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { DeleteAccountDialog } from "@/components/dashboard/delete-account-dialog";
+import { LogoutDialog } from "@/components/dashboard/logout-dialog";
 
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Profile Settings
   const [profileSettings, setProfileSettings] = useState({
@@ -70,11 +77,11 @@ export default function SettingsPage() {
   const handleSaveProfile = async () => {
     setSaving(true);
     try {
-      // TODO: Implement API call to update profile
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const updatedUser = await userService.updateProfile(profileSettings);
       toast.success("Profile updated successfully");
-    } catch (error) {
-      toast.error("Failed to update profile");
+      // Update the auth context with new user data if needed
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update profile");
     } finally {
       setSaving(false);
     }
@@ -86,23 +93,25 @@ export default function SettingsPage() {
       return;
     }
 
-    if (passwordSettings.newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
+    if (passwordSettings.newPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
       return;
     }
 
     setSaving(true);
     try {
-      // TODO: Implement API call to change password
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await userService.changePassword({
+        currentPassword: passwordSettings.currentPassword,
+        newPassword: passwordSettings.newPassword,
+      });
       toast.success("Password changed successfully");
       setPasswordSettings({
         currentPassword: "",
         newPassword: "",
         confirmPassword: "",
       });
-    } catch (error) {
-      toast.error("Failed to change password");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to change password");
     } finally {
       setSaving(false);
     }
@@ -135,38 +144,26 @@ export default function SettingsPage() {
   };
 
   const handleLogout = async () => {
-    if (confirm("Are you sure you want to logout?")) {
+    setIsLoggingOut(true);
+    try {
       await logout();
       router.push("/login");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to logout");
+      setIsLoggingOut(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    if (
-      !confirm(
-        "Are you sure you want to delete your account? This action cannot be undone and all your data will be permanently deleted.",
-      )
-    ) {
-      return;
-    }
-
-    const confirmation = prompt('Type "DELETE" to confirm account deletion:');
-    if (confirmation !== "DELETE") {
-      toast.error("Account deletion cancelled");
-      return;
-    }
-
-    setSaving(true);
+    setIsDeleting(true);
     try {
-      // TODO: Implement API call to delete account
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await userService.deleteAccount();
       toast.success("Account deleted successfully");
       await logout();
       router.push("/");
-    } catch (error) {
-      toast.error("Failed to delete account");
-    } finally {
-      setSaving(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to delete account");
+      setIsDeleting(false);
     }
   };
 
@@ -353,7 +350,11 @@ export default function SettingsPage() {
                         Windows • Chrome • Active now
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" onClick={handleLogout}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowLogoutDialog(true)}
+                    >
                       <LogOutIcon className="h-4 w-4 mr-2" />
                       Logout
                     </Button>
@@ -527,9 +528,10 @@ export default function SettingsPage() {
                     your files and data will be permanently deleted.
                   </p>
                   <Button
-                    variant="destructive"
-                    onClick={handleDeleteAccount}
-                    disabled={saving}
+                    variant="secondary"
+                    className="bg-red-100 text-red-600 hover:bg-red-200"
+                    onClick={() => setShowDeleteDialog(true)}
+                    disabled={isDeleting}
                   >
                     Delete Account
                   </Button>
@@ -539,6 +541,21 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Dialogs */}
+      <LogoutDialog
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        onConfirm={handleLogout}
+        isLoggingOut={isLoggingOut}
+      />
+
+      <DeleteAccountDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={handleDeleteAccount}
+        isDeleting={isDeleting}
+      />
     </div>
   );
 }
