@@ -1,0 +1,230 @@
+/users/profile:
+  get:
+    tags:
+      - User Profile
+    summary: Get user profile
+    description: Retrieve the authenticated user's profile information
+    responses:
+      200:
+        description: Profile retrieved successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  example: "Profile retrieved successfully"
+                data:
+                  $ref: "#/components/schemas/User"
+      401:
+        description: Unauthorized - Invalid or missing token
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+      404:
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+  put:
+    tags:
+      - User Profile
+    summary: Update user profile
+    description: Update the authenticated user's profile information (name and/or email)
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              name:
+                type: string
+                minLength: 2
+                example: "John Smith"
+                description: "User's full name (optional)"
+              email:
+                type: string
+                format: email
+                example: "john.smith@example.com"
+                description: "User's email address (optional, must be unique)"
+          examples:
+            updateName:
+              summary: Update name only
+              value:
+                name: "John Smith"
+            updateEmail:
+              summary: Update email only
+              value:
+                email: "newemail@example.com"
+            updateBoth:
+              summary: Update both name and email
+              value:
+                name: "John Smith"
+                email: "john.smith@example.com"
+    responses:
+      200:
+        description: Profile updated successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  example: "Profile updated successfully"
+                data:
+                  $ref: "#/components/schemas/User"
+      400:
+        description: Validation error or email already in use
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+            examples:
+              emailInUse:
+                summary: Email already in use
+                value:
+                  success: false
+                  message: "Email already in use"
+                  error: "BAD_REQUEST"
+              validationError:
+                summary: Validation error
+                value:
+                  success: false
+                  message: "Name must be at least 2 characters"
+                  error: "VALIDATION_ERROR"
+      401:
+        description: Unauthorized - Invalid or missing token
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+      404:
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/users/change-password:
+  put:
+    tags:
+      - User Profile
+    summary: Change password
+    description: Change the authenticated user's password. Requires current password for verification.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - currentPassword
+              - newPassword
+            properties:
+              currentPassword:
+                type: string
+                format: password
+                example: "oldPassword123"
+                description: "Current password for verification"
+              newPassword:
+                type: string
+                format: password
+                minLength: 6
+                example: "newPassword456"
+                description: "New password (minimum 6 characters)"
+    responses:
+      200:
+        description: Password changed successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  example: "Password changed successfully"
+                data:
+                  type: null
+                  example: null
+      400:
+        description: Validation error or incorrect current password
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+            examples:
+              incorrectPassword:
+                summary: Current password is incorrect
+                value:
+                  success: false
+                  message: "Current password is incorrect"
+                  error: "BAD_REQUEST"
+              passwordTooShort:
+                summary: Password too short
+                value:
+                  success: false
+                  message: "New password must be at least 6 characters"
+                  error: "VALIDATION_ERROR"
+      401:
+        description: Unauthorized - Invalid or missing token
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+      404:
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+
+/users/account:
+  delete:
+    tags:
+      - User Profile
+    summary: Delete user account
+    description: Permanently delete the authenticated user's account and all associated data. This action cannot be undone.
+    responses:
+      200:
+        description: Account deleted successfully
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                  example: true
+                message:
+                  type: string
+                  example: "Account deleted successfully"
+                data:
+                  type: null
+                  example: null
+      401:
+        description: Unauthorized - Invalid or missing token
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"
+      404:
+        description: User not found
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Error"

@@ -22,7 +22,7 @@ export class AuthRepository {
   }): Promise<User> {
     // Find the Free package
     const freePackage = await this.prisma.package.findFirst({
-      where: { name: 'Free', isActive: true },
+      where: { name: 'free', isActive: true },
     });
 
     if (!freePackage) {

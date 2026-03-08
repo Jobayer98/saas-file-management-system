@@ -47,6 +47,10 @@ const options: swaggerJsdoc.Options = {
         description: 'User authentication and authorization endpoints',
       },
       {
+        name: 'User Profile',
+        description: 'User profile management endpoints',
+      },
+      {
         name: 'Admin - Packages',
         description: 'Package management endpoints (Admin only)',
       },

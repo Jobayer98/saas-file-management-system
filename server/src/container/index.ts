@@ -7,6 +7,7 @@ import { SubscriptionRepository } from "@/repositories/subscription/subscription
 import { FolderRepository } from "@/repositories/folder/folder.repository";
 import { FileRepository } from "@/repositories/file/file.repository";
 import { DashboardRepository } from "@/repositories/dashboard/dashboard.repository";
+import { ProfileRepository } from "@/repositories/profile/profile.repository";
 
 // Services
 import { AuthService } from "@/services/auth/auth.service";
@@ -17,6 +18,7 @@ import { SubscriptionService } from "@/services/subscription/subscription.servic
 import { FolderService } from "@/services/folder/folder.service";
 import { FileService } from "@/services/file/file.service";
 import { DashboardService } from "@/services/dashboard/dashboard.service";
+import { ProfileService } from "@/services/profile/profile.service";
 
 // Controllers
 import { AuthController } from "@/controllers/auth/auth.controller";
@@ -27,6 +29,7 @@ import { SubscriptionController } from "@/controllers/subscription/subscription.
 import { FolderController } from "@/controllers/folder/folder.controller";
 import { FileController } from "@/controllers/file/file.controller";
 import { DashboardController } from "@/controllers/dashboard/dashboard.controller";
+import { ProfileController } from "@/controllers/profile/profile.controller";
 import { PrismaClient } from "@prisma/client";
 
 export class Container {
@@ -42,6 +45,7 @@ export class Container {
   private _folderRepository?: FolderRepository;
   private _fileRepository?: FileRepository;
   private _dashboardRepository?: DashboardRepository;
+  private _profileRepository?: ProfileRepository;
 
   // Services
   private _authService?: AuthService;
@@ -52,6 +56,7 @@ export class Container {
   private _folderService?: FolderService;
   private _fileService?: FileService;
   private _dashboardService?: DashboardService;
+  private _profileService?: ProfileService;
 
   // Controllers
   private _authController?: AuthController;
@@ -62,6 +67,7 @@ export class Container {
   private _folderController?: FolderController;
   private _fileController?: FileController;
   private _dashboardController?: DashboardController;
+  private _profileController?: ProfileController;
 
   constructor(prisma: PrismaClient) {
     this._prisma = prisma;
@@ -127,6 +133,13 @@ export class Container {
       this._dashboardRepository = new DashboardRepository(this._prisma);
     }
     return this._dashboardRepository;
+  }
+
+  get profileRepository(): ProfileRepository {
+    if (!this._profileRepository) {
+      this._profileRepository = new ProfileRepository(this._prisma);
+    }
+    return this._profileRepository;
   }
 
   // Service getters
@@ -196,6 +209,13 @@ export class Container {
     return this._dashboardService;
   }
 
+  get profileService(): ProfileService {
+    if (!this._profileService) {
+      this._profileService = new ProfileService(this.profileRepository);
+    }
+    return this._profileService;
+  }
+
   // Controller getters
   get authController(): AuthController {
     if (!this._authController) {
@@ -255,6 +275,13 @@ export class Container {
       );
     }
     return this._dashboardController;
+  }
+
+  get profileController(): ProfileController {
+    if (!this._profileController) {
+      this._profileController = new ProfileController(this.profileService);
+    }
+    return this._profileController;
   }
 }
 

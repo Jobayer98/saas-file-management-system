@@ -1,4 +1,4 @@
-// import { sendPasswordResetEmail } from "@/lib/email";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
 import { AppError } from "@/middlewares/error/error.middleware";
 import { AuthRepository } from "@/repositories/auth/auth.repository";
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from "@/utils/helpers/jwt.helper";
@@ -27,7 +27,7 @@ export class AuthService {
     });
 
     // Send verification email
-    // await sendVerificationEmail(user.email, emailVerifyToken);
+    await sendVerificationEmail(user.email, emailVerifyToken);
 
     return {
       message: 'Registration successful. Please check your email to verify your account.',
@@ -111,7 +111,8 @@ export class AuthService {
     expiry.setHours(expiry.getHours() + 1);
 
     await this.authRepository.setPasswordResetToken(data.email, resetToken, expiry);
-    // await sendPasswordResetEmail(user.email, resetToken);
+
+    await sendPasswordResetEmail(user.email, resetToken);
 
     return { message: 'If the email exists, a reset link has been sent' };
   }
