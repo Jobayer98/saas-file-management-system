@@ -14,6 +14,26 @@ export function formatBytes(bytes: number, decimals = 2): string {
 }
 
 /**
+ * Format file size (alias for formatBytes)
+ */
+export function formatFileSize(bytes: number): string {
+  return formatBytes(bytes);
+}
+
+/**
+ * Format date to readable string
+ */
+export function formatDate(dateString: string): string {
+  return new Date(dateString).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+/**
  * Format file types array for display
  */
 export function formatFileTypes(allowedTypes: string[]): string[] {

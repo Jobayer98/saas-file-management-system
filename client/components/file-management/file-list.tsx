@@ -40,9 +40,13 @@ import {
   ArrowUpIcon as SortAscIcon,
   ArrowDownIcon as SortDescIcon,
   SearchIcon,
+  MoveIcon,
+  CopyIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "@/components/file-preview";
+import { MoveCopyDialog } from "./move-copy-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface FileListProps {
   folderId?: string;
@@ -68,6 +72,22 @@ export function FileList({
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [moveCopyFile, setMoveCopyFile] = useState<FileItem | null>(null);
+  const [moveCopyMode, setMoveCopyMode] = useState<"move" | "copy">("move");
+  const [isMoveCopyOpen, setIsMoveCopyOpen] = useState(false);
+
+  // Confirm dialog states
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     loadFiles();
@@ -168,18 +188,23 @@ export function FileList({
   };
 
   const handleDelete = async (file: FileItem) => {
-    if (!confirm(`Are you sure you want to delete "${file.originalName}"?`)) {
-      return;
-    }
-
-    try {
-      await fileService.deleteFile(file.id);
-      toast.success("File deleted successfully");
-      loadFiles();
-      onFilesChange?.();
-    } catch (error) {
-      toast.error("Failed to delete file");
-    }
+    setConfirmDialog({
+      open: true,
+      title: "Delete File",
+      description: `Are you sure you want to delete "${file.originalName}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await fileService.deleteFile(file.id);
+          toast.success("File deleted successfully");
+          loadFiles();
+          onFilesChange?.();
+        } catch (error) {
+          toast.error("Failed to delete file");
+        } finally {
+          setConfirmDialog((prev) => ({ ...prev, open: false }));
+        }
+      },
+    });
   };
 
   const handleToggleFavorite = async (file: FileItem) => {
@@ -197,21 +222,24 @@ export function FileList({
   const handleBulkDelete = async () => {
     if (selectedFiles.size === 0) return;
 
-    if (
-      !confirm(`Are you sure you want to delete ${selectedFiles.size} file(s)?`)
-    ) {
-      return;
-    }
-
-    try {
-      await fileService.bulkDelete(Array.from(selectedFiles));
-      toast.success(`Deleted ${selectedFiles.size} file(s)`);
-      setSelectedFiles(new Set());
-      loadFiles();
-      onFilesChange?.();
-    } catch (error) {
-      toast.error("Failed to delete files");
-    }
+    setConfirmDialog({
+      open: true,
+      title: "Delete Files",
+      description: `Are you sure you want to delete ${selectedFiles.size} file(s)? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await fileService.bulkDelete(Array.from(selectedFiles));
+          toast.success(`Deleted ${selectedFiles.size} file(s)`);
+          setSelectedFiles(new Set());
+          loadFiles();
+          onFilesChange?.();
+        } catch (error) {
+          toast.error("Failed to delete files");
+        } finally {
+          setConfirmDialog((prev) => ({ ...prev, open: false }));
+        }
+      },
+    });
   };
 
   const handleBulkFavorite = async () => {
@@ -243,6 +271,37 @@ export function FileList({
       prev.map((f) => (f.id === updatedFile.id ? updatedFile : f)),
     );
     setPreviewFile(updatedFile);
+  };
+
+  const handleMoveFile = (file: FileItem) => {
+    setMoveCopyFile(file);
+    setMoveCopyMode("move");
+    setIsMoveCopyOpen(true);
+  };
+
+  const handleCopyFile = (file: FileItem) => {
+    setMoveCopyFile(file);
+    setMoveCopyMode("copy");
+    setIsMoveCopyOpen(true);
+  };
+
+  const handleMoveCopyConfirm = async (targetFolderId: string | null) => {
+    if (!moveCopyFile) return;
+
+    try {
+      if (moveCopyMode === "move") {
+        await fileService.moveFile(moveCopyFile.id, targetFolderId);
+        toast.success("File moved successfully");
+      } else {
+        await fileService.copyFile(moveCopyFile.id, targetFolderId);
+        toast.success("File copied successfully");
+      }
+      loadFiles();
+      onFilesChange?.();
+    } catch (error: any) {
+      toast.error(error.message || `Failed to ${moveCopyMode} file`);
+      throw error;
+    }
   };
 
   const getFileIcon = (mimeType: string) => {
@@ -449,6 +508,14 @@ export function FileList({
                             : "Add to favorites"}
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleMoveFile(file)}>
+                          <MoveIcon className="h-4 w-4 mr-2" />
+                          Move
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCopyFile(file)}>
+                          <CopyIcon className="h-4 w-4 mr-2" />
+                          Copy
+                        </DropdownMenuItem>
                         <DropdownMenuItem>
                           <EditIcon className="h-4 w-4 mr-2" />
                           Rename
@@ -481,6 +548,30 @@ export function FileList({
         isOpen={isPreviewOpen}
         onClose={handleClosePreview}
         onFileUpdate={handleFileUpdate}
+      />
+
+      {/* Move/Copy Dialog */}
+      {moveCopyFile && (
+        <MoveCopyDialog
+          open={isMoveCopyOpen}
+          onOpenChange={setIsMoveCopyOpen}
+          onConfirm={handleMoveCopyConfirm}
+          mode={moveCopyMode}
+          itemType="file"
+          itemName={moveCopyFile.originalName}
+          currentFolderId={moveCopyFile.folderId}
+        />
+      )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        variant="destructive"
+        confirmText="Delete"
       />
     </div>
   );

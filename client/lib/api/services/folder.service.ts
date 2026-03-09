@@ -37,6 +37,11 @@ export const folderService = {
     return response.data.data;
   },
 
+  async copyFolder(id: string, targetFolderId: string | null): Promise<Folder> {
+    const response = await apiClient.post(`/folders/${id}/copy`, { targetFolderId });
+    return response.data.data;
+  },
+
   async getBreadcrumb(id: string): Promise<Folder[]> {
     const response = await apiClient.get(`/folders/${id}/breadcrumb`);
     return response.data.data;

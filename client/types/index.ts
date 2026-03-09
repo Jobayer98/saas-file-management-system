@@ -37,6 +37,8 @@ export interface FileItem {
   userId: string;
   isFavorite: boolean;
   version: number;
+  isDeleted?: boolean;
+  deletedAt?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -57,6 +59,8 @@ export interface Folder {
   name: string;
   parentId: string | null;
   userId: string;
+  isDeleted?: boolean;
+  deletedAt?: string;
   createdAt: string;
   updatedAt: string;
   children?: Folder[];

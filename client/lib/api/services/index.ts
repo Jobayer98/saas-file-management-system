@@ -5,3 +5,4 @@ export { subscriptionService } from './subscription.service';
 export { adminService } from './admin.service';
 export { dashboardService } from './dashboard.service';
 export { userService } from './user.service';
+export { trashService } from './trash.service';

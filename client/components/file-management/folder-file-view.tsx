@@ -45,9 +45,13 @@ import {
   ArrowUpIcon,
   ArrowDownIcon,
   EyeIcon,
+  MoveIcon,
+  CopyIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { FilePreviewModal } from "@/components/file-preview";
+import { MoveCopyDialog } from "./move-copy-dialog";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface FolderFileViewProps {
   folderId?: string | null;
@@ -88,6 +92,29 @@ export function FolderFileView({
   // File preview states
   const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+
+  // Move/Copy states
+  const [moveCopyItem, setMoveCopyItem] = useState<{
+    id: string;
+    name: string;
+    type: "folder" | "file";
+    currentFolderId?: string | null;
+  } | null>(null);
+  const [moveCopyMode, setMoveCopyMode] = useState<"move" | "copy">("move");
+  const [isMoveCopyOpen, setIsMoveCopyOpen] = useState(false);
+
+  // Confirm dialog states
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    description: string;
+    onConfirm: () => void;
+  }>({
+    open: false,
+    title: "",
+    description: "",
+    onConfirm: () => {},
+  });
 
   useEffect(() => {
     loadContent();
@@ -212,36 +239,42 @@ export function FolderFileView({
   };
 
   const handleDeleteFolder = async (folder: Folder) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${folder.name}"? This will also delete all contents.`,
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await folderService.deleteFolder(folder.id);
-      toast.success("Folder deleted successfully");
-      loadContent();
-      onRefresh?.();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete folder");
-    }
+    setConfirmDialog({
+      open: true,
+      title: "Delete Folder",
+      description: `Are you sure you want to delete "${folder.name}"? This will also delete all contents and cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await folderService.deleteFolder(folder.id);
+          toast.success("Folder deleted successfully");
+          loadContent();
+          onRefresh?.();
+        } catch (error: any) {
+          toast.error(error.message || "Failed to delete folder");
+        } finally {
+          setConfirmDialog((prev) => ({ ...prev, open: false }));
+        }
+      },
+    });
   };
 
   const handleDeleteFile = async (file: FileItem) => {
-    if (!confirm(`Are you sure you want to delete "${file.originalName}"?`)) {
-      return;
-    }
-
-    try {
-      await fileService.deleteFile(file.id);
-      toast.success("File deleted successfully");
-      loadContent();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete file");
-    }
+    setConfirmDialog({
+      open: true,
+      title: "Delete File",
+      description: `Are you sure you want to delete "${file.originalName}"? This action cannot be undone.`,
+      onConfirm: async () => {
+        try {
+          await fileService.deleteFile(file.id);
+          toast.success("File deleted successfully");
+          loadContent();
+        } catch (error: any) {
+          toast.error(error.message || "Failed to delete file");
+        } finally {
+          setConfirmDialog((prev) => ({ ...prev, open: false }));
+        }
+      },
+    });
   };
 
   const handleDownloadFile = async (file: FileItem) => {
@@ -298,6 +331,81 @@ export function FolderFileView({
       prev.map((f) => (f.id === updatedFile.id ? updatedFile : f)),
     );
     setPreviewFile(updatedFile);
+  };
+
+  const handleMoveFolder = (folder: Folder) => {
+    setMoveCopyItem({
+      id: folder.id,
+      name: folder.name,
+      type: "folder",
+      currentFolderId: folder.parentId,
+    });
+    setMoveCopyMode("move");
+    setIsMoveCopyOpen(true);
+  };
+
+  const handleCopyFolder = (folder: Folder) => {
+    setMoveCopyItem({
+      id: folder.id,
+      name: folder.name,
+      type: "folder",
+      currentFolderId: folder.parentId,
+    });
+    setMoveCopyMode("copy");
+    setIsMoveCopyOpen(true);
+  };
+
+  const handleMoveFile = (file: FileItem) => {
+    setMoveCopyItem({
+      id: file.id,
+      name: file.originalName,
+      type: "file",
+      currentFolderId: file.folderId,
+    });
+    setMoveCopyMode("move");
+    setIsMoveCopyOpen(true);
+  };
+
+  const handleCopyFile = (file: FileItem) => {
+    setMoveCopyItem({
+      id: file.id,
+      name: file.originalName,
+      type: "file",
+      currentFolderId: file.folderId,
+    });
+    setMoveCopyMode("copy");
+    setIsMoveCopyOpen(true);
+  };
+
+  const handleMoveCopyConfirm = async (targetFolderId: string | null) => {
+    if (!moveCopyItem) return;
+
+    try {
+      if (moveCopyItem.type === "folder") {
+        if (moveCopyMode === "move") {
+          await folderService.moveFolder(moveCopyItem.id, targetFolderId);
+          toast.success("Folder moved successfully");
+        } else {
+          await folderService.copyFolder(moveCopyItem.id, targetFolderId);
+          toast.success("Folder copied successfully");
+        }
+      } else {
+        if (moveCopyMode === "move") {
+          await fileService.moveFile(moveCopyItem.id, targetFolderId);
+          toast.success("File moved successfully");
+        } else {
+          await fileService.copyFile(moveCopyItem.id, targetFolderId);
+          toast.success("File copied successfully");
+        }
+      }
+      loadContent();
+      onRefresh?.();
+    } catch (error: any) {
+      toast.error(
+        error.message || `Failed to ${moveCopyMode} ${moveCopyItem.type}`,
+      );
+      throw error;
+    }
   };
 
   const getFileIcon = (mimeType: string, fileUrl?: string) => {
@@ -490,6 +598,19 @@ export function FolderFileView({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
+                              onClick={() => handleMoveFolder(folder)}
+                            >
+                              <MoveIcon className="h-4 w-4 mr-2" />
+                              Move
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleCopyFolder(folder)}
+                            >
+                              <CopyIcon className="h-4 w-4 mr-2" />
+                              Copy
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
                               onClick={() => handleDeleteFolder(folder)}
                               className="text-red-600"
                             >
@@ -591,6 +712,19 @@ export function FolderFileView({
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
+                              onClick={() => handleMoveFile(file)}
+                            >
+                              <MoveIcon className="h-4 w-4 mr-2" />
+                              Move
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleCopyFile(file)}
+                            >
+                              <CopyIcon className="h-4 w-4 mr-2" />
+                              Copy
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
                               onClick={() => handleDeleteFile(file)}
                               className="text-red-600"
                             >
@@ -658,6 +792,19 @@ export function FolderFileView({
                         >
                           <EditIcon className="h-4 w-4 mr-2" />
                           Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleMoveFolder(folder)}
+                        >
+                          <MoveIcon className="h-4 w-4 mr-2" />
+                          Move
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleCopyFolder(folder)}
+                        >
+                          <CopyIcon className="h-4 w-4 mr-2" />
+                          Copy
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -737,6 +884,15 @@ export function FolderFileView({
                           {file.isFavorite
                             ? "Remove from favorites"
                             : "Add to favorites"}
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleMoveFile(file)}>
+                          <MoveIcon className="h-4 w-4 mr-2" />
+                          Move
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleCopyFile(file)}>
+                          <CopyIcon className="h-4 w-4 mr-2" />
+                          Copy
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -828,6 +984,33 @@ export function FolderFileView({
         isOpen={isPreviewOpen}
         onClose={handleClosePreview}
         onFileUpdate={handleFileUpdate}
+      />
+
+      {/* Move/Copy Dialog */}
+      {moveCopyItem && (
+        <MoveCopyDialog
+          open={isMoveCopyOpen}
+          onOpenChange={setIsMoveCopyOpen}
+          onConfirm={handleMoveCopyConfirm}
+          mode={moveCopyMode}
+          itemType={moveCopyItem.type}
+          itemName={moveCopyItem.name}
+          currentFolderId={moveCopyItem.currentFolderId}
+          excludeFolderIds={
+            moveCopyItem.type === "folder" ? [moveCopyItem.id] : []
+          }
+        />
+      )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        open={confirmDialog.open}
+        onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
+        onConfirm={confirmDialog.onConfirm}
+        title={confirmDialog.title}
+        description={confirmDialog.description}
+        variant="destructive"
+        confirmText="Delete"
       />
     </div>
   );

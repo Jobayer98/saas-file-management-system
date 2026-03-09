@@ -106,6 +106,11 @@ export const fileService = {
     return response.data.data;
   },
 
+  async copyFile(id: string, targetFolderId: string | null): Promise<FileItem> {
+    const response = await apiClient.post(`/files/${id}/copy`, { targetFolderId });
+    return response.data.data;
+  },
+
   async deleteFile(id: string): Promise<void> {
     await apiClient.delete(`/files/${id}`);
   },

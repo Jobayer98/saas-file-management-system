@@ -13,6 +13,7 @@ import {
   CreditCardIcon,
   MenuIcon,
   XIcon,
+  Trash2Icon,
 } from "lucide-react";
 
 const navigation = [
@@ -20,6 +21,7 @@ const navigation = [
   { name: "Files", href: "/dashboard/files", icon: FileIcon },
   { name: "Upload", href: "/dashboard/upload", icon: UploadIcon },
   { name: "Favorites", href: "/dashboard/favorites", icon: StarIcon },
+  { name: "Trash", href: "/dashboard/trash", icon: Trash2Icon },
   {
     name: "Subscription",
     href: "/dashboard/subscription",
