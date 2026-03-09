@@ -6,6 +6,7 @@ import folderRoutes from './folder.routes';
 import fileRoutes from './file.routes';
 import dashboardRoutes from './dashboard.routes';
 import userRoutes from './user.routes';
+import trashRoutes from './trash.routes';
 
 const router = Router();
 
@@ -16,5 +17,6 @@ router.use('/folders', folderRoutes);
 router.use('/files', fileRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/users', userRoutes);
+router.use('/trash', trashRoutes);
 
 export default router;

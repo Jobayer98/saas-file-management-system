@@ -19,6 +19,7 @@ import { FolderService } from "@/services/folder/folder.service";
 import { FileService } from "@/services/file/file.service";
 import { DashboardService } from "@/services/dashboard/dashboard.service";
 import { ProfileService } from "@/services/profile/profile.service";
+import { TrashService } from "@/services/trash/trash.service";
 
 // Controllers
 import { AuthController } from "@/controllers/auth/auth.controller";
@@ -30,6 +31,7 @@ import { FolderController } from "@/controllers/folder/folder.controller";
 import { FileController } from "@/controllers/file/file.controller";
 import { DashboardController } from "@/controllers/dashboard/dashboard.controller";
 import { ProfileController } from "@/controllers/profile/profile.controller";
+import { TrashController } from "@/controllers/trash/trash.controller";
 import { PrismaClient } from "@prisma/client";
 
 export class Container {
@@ -57,6 +59,7 @@ export class Container {
   private _fileService?: FileService;
   private _dashboardService?: DashboardService;
   private _profileService?: ProfileService;
+  private _trashService?: TrashService;
 
   // Controllers
   private _authController?: AuthController;
@@ -68,6 +71,7 @@ export class Container {
   private _fileController?: FileController;
   private _dashboardController?: DashboardController;
   private _profileController?: ProfileController;
+  private _trashController?: TrashController;
 
   constructor(prisma: PrismaClient) {
     this._prisma = prisma;
@@ -216,6 +220,16 @@ export class Container {
     return this._profileService;
   }
 
+  get trashService(): TrashService {
+    if (!this._trashService) {
+      this._trashService = new TrashService(
+        this.fileRepository,
+        this.folderRepository
+      );
+    }
+    return this._trashService;
+  }
+
   // Controller getters
   get authController(): AuthController {
     if (!this._authController) {
@@ -282,6 +296,13 @@ export class Container {
       this._profileController = new ProfileController(this.profileService);
     }
     return this._profileController;
+  }
+
+  get trashController(): TrashController {
+    if (!this._trashController) {
+      this._trashController = new TrashController(this.trashService);
+    }
+    return this._trashController;
   }
 }
 

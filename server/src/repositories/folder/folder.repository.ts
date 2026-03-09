@@ -36,13 +36,18 @@ export class FolderRepository {
     });
   }
 
-  async getFolderById(id: string, userId: string): Promise<Folder | null> {
+  async getFolderById(id: string, userId: string, includeDeleted = false): Promise<Folder | null> {
+    const where: any = {
+      id,
+      userId,
+    };
+
+    if (!includeDeleted) {
+      where.isDeleted = false;
+    }
+
     return await this.prisma.folder.findFirst({
-      where: {
-        id,
-        userId,
-        isDeleted: false,
-      },
+      where,
     });
   }
 
@@ -118,18 +123,23 @@ export class FolderRepository {
     });
   }
 
-  async getAllDescendants(folderId: string, userId: string): Promise<Folder[]> {
-    const folder = await this.getFolderById(folderId, userId);
+  async getAllDescendants(folderId: string, userId: string, includeDeleted = false): Promise<Folder[]> {
+    const folder = await this.getFolderById(folderId, userId, includeDeleted);
     if (!folder) return [];
 
-    return await this.prisma.folder.findMany({
-      where: {
-        userId,
-        path: {
-          startsWith: `${folder.path}/`,
-        },
-        isDeleted: false,
+    const where: any = {
+      userId,
+      path: {
+        startsWith: `${folder.path}/`,
       },
+    };
+
+    if (!includeDeleted) {
+      where.isDeleted = false;
+    }
+
+    return await this.prisma.folder.findMany({
+      where,
     });
   }
 
@@ -207,5 +217,45 @@ export class FolderRepository {
       },
     });
     return count > 0;
+  }
+
+  // Trash operations
+  async getDeletedFolders(userId: string): Promise<Folder[]> {
+    return await this.prisma.folder.findMany({
+      where: {
+        userId,
+        isDeleted: true,
+      },
+      orderBy: { deletedAt: 'desc' },
+    });
+  }
+
+  async bulkRestore(ids: string[]): Promise<number> {
+    const result = await this.prisma.folder.updateMany({
+      where: { id: { in: ids } },
+      data: {
+        isDeleted: false,
+        deletedAt: null,
+      },
+    });
+    return result.count;
+  }
+
+  async bulkPermanentDelete(ids: string[]): Promise<number> {
+    const result = await this.prisma.folder.deleteMany({
+      where: { id: { in: ids } },
+    });
+    return result.count;
+  }
+
+  async getDeletedFoldersOlderThan(date: Date): Promise<Folder[]> {
+    return await this.prisma.folder.findMany({
+      where: {
+        isDeleted: true,
+        deletedAt: {
+          lte: date,
+        },
+      },
+    });
   }
 }

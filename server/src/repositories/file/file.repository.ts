@@ -45,13 +45,18 @@ export class FileRepository {
     return { files, total };
   }
 
-  async getFileById(id: string, userId: string): Promise<File | null> {
+  async getFileById(id: string, userId: string, includeDeleted = false): Promise<File | null> {
+    const where: any = {
+      id,
+      userId,
+    };
+
+    if (!includeDeleted) {
+      where.isDeleted = false;
+    }
+
     return await this.prisma.file.findFirst({
-      where: {
-        id,
-        userId,
-        isDeleted: false,
-      },
+      where,
     });
   }
 
@@ -177,6 +182,51 @@ export class FileRepository {
       where: {
         folderId,
         isDeleted: false,
+      },
+    });
+  }
+
+  // Trash operations
+  async getDeletedFiles(userId: string): Promise<File[]> {
+    return await this.prisma.file.findMany({
+      where: {
+        userId,
+        isDeleted: true,
+      },
+      orderBy: { deletedAt: 'desc' },
+    });
+  }
+
+  async restoreFile(id: string): Promise<File> {
+    return await this.prisma.file.update({
+      where: { id },
+      data: {
+        isDeleted: false,
+        deletedAt: null,
+      },
+    });
+  }
+
+  async permanentlyDeleteFile(id: string): Promise<void> {
+    await this.prisma.file.delete({
+      where: { id },
+    });
+  }
+
+  async bulkPermanentDelete(ids: string[]): Promise<number> {
+    const result = await this.prisma.file.deleteMany({
+      where: { id: { in: ids } },
+    });
+    return result.count;
+  }
+
+  async getDeletedFilesOlderThan(date: Date): Promise<File[]> {
+    return await this.prisma.file.findMany({
+      where: {
+        isDeleted: true,
+        deletedAt: {
+          lte: date,
+        },
       },
     });
   }

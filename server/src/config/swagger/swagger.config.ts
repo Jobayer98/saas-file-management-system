@@ -6,7 +6,7 @@ const options: swaggerJsdoc.Options = {
     info: {
       title: 'SaaS File Management System API',
       version: '1.0.0',
-      description: 'Comprehensive API documentation for the SaaS File Management System',
+      description: 'A comprehensive cloud-based file management platform built with modern web technologies, offering secure file storage, and sharing features with subscription-based access control.',
       contact: {
         name: 'API Support',
         email: 'support@example.com',
@@ -22,7 +22,7 @@ const options: swaggerJsdoc.Options = {
         description: 'Development server',
       },
       {
-        url: 'https://api.example.com/api',
+        url: 'https://saas-file-management-system-server-q48e.onrender.com/api',
         description: 'Production server',
       },
     ],

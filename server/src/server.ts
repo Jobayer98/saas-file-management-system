@@ -7,8 +7,10 @@ import logger from './lib/logger';
 import prisma from './lib/prisma';
 import { bootstrapAdmin } from './utils/bootstrap';
 import { initializeContainer } from './container';
+import { SchedulerService } from './services/scheduler/scheduler.service';
 
 const PORT = process.env.PORT || 5000;
+const scheduler = new SchedulerService();
 
 const startServer = async () => {
   try {
@@ -22,6 +24,10 @@ const startServer = async () => {
 
     // Bootstrap: Create default admin if not exists
     await bootstrapAdmin();
+
+    // Start scheduled jobs
+    scheduler.start();
+    logger.info('✅ Scheduled jobs started');
 
     // Start server
     app.listen(PORT, () => {
@@ -38,12 +44,14 @@ const startServer = async () => {
 // Graceful shutdown
 process.on('SIGTERM', async () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  scheduler.stop();
   await prisma.$disconnect();
   process.exit(0);
 });
 
 process.on('SIGINT', async () => {
   logger.info('SIGINT received, shutting down gracefully');
+  scheduler.stop();
   await prisma.$disconnect();
   process.exit(0);
 });
