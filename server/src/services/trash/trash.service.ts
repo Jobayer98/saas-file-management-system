@@ -5,7 +5,7 @@ import { FolderRepository } from "@/repositories/folder/folder.repository";
 export class TrashService {
   constructor(
     private fileRepository: FileRepository,
-    private folderRepository: FolderRepository
+    private folderRepository: FolderRepository,
   ) {}
 
   async getTrashItems(userId: string) {
@@ -15,14 +15,14 @@ export class TrashService {
     ]);
 
     return {
-      files,
+      files: files.map(file => ({ ...file, size: file.size.toString() })),
       folders,
     };
   }
 
   async restoreFile(userId: string, fileId: string) {
     const file = await this.fileRepository.getFileById(fileId, userId, true);
-    
+
     if (!file) {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
@@ -35,13 +35,17 @@ export class TrashService {
 
     return {
       message: "File restored successfully",
-      file,
+      file: { ...file, size: file.size.toString() },
     };
   }
 
   async restoreFolder(userId: string, folderId: string) {
-    const folder = await this.folderRepository.getFolderById(folderId, userId, true);
-    
+    const folder = await this.folderRepository.getFolderById(
+      folderId,
+      userId,
+      true,
+    );
+
     if (!folder) {
       throw new AppError("Folder not found", 404, "FOLDER_NOT_FOUND");
     }
@@ -51,7 +55,11 @@ export class TrashService {
     }
 
     // Restore folder and all its descendants
-    const descendants = await this.folderRepository.getAllDescendants(folderId, userId, true);
+    const descendants = await this.folderRepository.getAllDescendants(
+      folderId,
+      userId,
+      true,
+    );
     const allIds = [folderId, ...descendants.map((d) => d.id)];
 
     await this.folderRepository.bulkRestore(allIds);
@@ -64,7 +72,7 @@ export class TrashService {
 
   async permanentlyDeleteFile(userId: string, fileId: string) {
     const file = await this.fileRepository.getFileById(fileId, userId, true);
-    
+
     if (!file) {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
@@ -81,8 +89,12 @@ export class TrashService {
   }
 
   async permanentlyDeleteFolder(userId: string, folderId: string) {
-    const folder = await this.folderRepository.getFolderById(folderId, userId, true);
-    
+    const folder = await this.folderRepository.getFolderById(
+      folderId,
+      userId,
+      true,
+    );
+
     if (!folder) {
       throw new AppError("Folder not found", 404, "FOLDER_NOT_FOUND");
     }
@@ -92,7 +104,11 @@ export class TrashService {
     }
 
     // Permanently delete folder and all its descendants
-    const descendants = await this.folderRepository.getAllDescendants(folderId, userId, true);
+    const descendants = await this.folderRepository.getAllDescendants(
+      folderId,
+      userId,
+      true,
+    );
     const allIds = [folderId, ...descendants.map((d) => d.id)];
 
     await this.folderRepository.bulkPermanentDelete(allIds);
@@ -112,8 +128,12 @@ export class TrashService {
     const folderIds = folders.map((f) => f.id);
 
     await Promise.all([
-      fileIds.length > 0 ? this.fileRepository.bulkPermanentDelete(fileIds) : Promise.resolve(),
-      folderIds.length > 0 ? this.folderRepository.bulkPermanentDelete(folderIds) : Promise.resolve(),
+      fileIds.length > 0
+        ? this.fileRepository.bulkPermanentDelete(fileIds)
+        : Promise.resolve(),
+      folderIds.length > 0
+        ? this.folderRepository.bulkPermanentDelete(folderIds)
+        : Promise.resolve(),
     ]);
 
     return {
@@ -142,8 +162,12 @@ export class TrashService {
 
     // Permanently delete old items
     await Promise.all([
-      fileIds.length > 0 ? this.fileRepository.bulkPermanentDelete(fileIds) : Promise.resolve(),
-      folderIds.length > 0 ? this.folderRepository.bulkPermanentDelete(folderIds) : Promise.resolve(),
+      fileIds.length > 0
+        ? this.fileRepository.bulkPermanentDelete(fileIds)
+        : Promise.resolve(),
+      folderIds.length > 0
+        ? this.folderRepository.bulkPermanentDelete(folderIds)
+        : Promise.resolve(),
     ]);
 
     return {
