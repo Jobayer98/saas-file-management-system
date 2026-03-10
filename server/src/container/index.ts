@@ -21,6 +21,7 @@ import { DashboardService } from "@/services/dashboard/dashboard.service";
 import { ProfileService } from "@/services/profile/profile.service";
 import { TrashService } from "@/services/trash/trash.service";
 import { CacheService } from "@/services/cache/cache.service";
+import { EmailQueueService } from "@/services/queue/email-queue.service";
 
 // Controllers
 import { AuthController } from "@/controllers/auth/auth.controller";
@@ -62,6 +63,7 @@ export class Container {
   private _profileService?: ProfileService;
   private _trashService?: TrashService;
   private _cacheService?: CacheService;
+  private _emailQueueService?: EmailQueueService;
 
   // Controllers
   private _authController?: AuthController;
@@ -156,9 +158,16 @@ export class Container {
     return this._cacheService;
   }
 
+  get emailQueueService(): EmailQueueService {
+    if (!this._emailQueueService) {
+      this._emailQueueService = new EmailQueueService();
+    }
+    return this._emailQueueService;
+  }
+
   get authService(): AuthService {
     if (!this._authService) {
-      this._authService = new AuthService(this.authRepository);
+      this._authService = new AuthService(this.authRepository, this.emailQueueService);
     }
     return this._authService;
   }

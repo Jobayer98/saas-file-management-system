@@ -9,6 +9,7 @@ import { initializeRedis, closeRedis } from './lib/redis';
 import { bootstrapAdmin } from './utils/bootstrap';
 import { initializeContainer } from './container';
 import { SchedulerService } from './services/scheduler/scheduler.service';
+import './lib/queue/email.worker';
 
 const PORT = process.env.PORT || 5000;
 const scheduler = new SchedulerService();
@@ -22,6 +23,9 @@ const startServer = async () => {
     // Initialize Redis
     initializeRedis();
     logger.info('✅ Redis connected');
+
+    // Initialize email worker
+    logger.info('✅ Email worker started');
 
     // Initialize dependency injection container
     initializeContainer(prisma);

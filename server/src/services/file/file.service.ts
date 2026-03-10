@@ -17,7 +17,6 @@ import { FolderRepository } from "@/repositories/folder/folder.repository";
 import { FileRepository } from "@/repositories/file/file.repository";
 import { CloudinaryService } from "@/services/cloudinary/cloudinary.service";
 import { CacheService } from "@/services/cache/cache.service";
-import logger from "@/lib/logger";
 
 // In-memory store for upload sessions
 interface UploadSession {
