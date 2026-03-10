@@ -53,13 +53,15 @@ export default function SubscriptionPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [subData, pkgs] = await Promise.all([
+      const [subData, pkgsData] = await Promise.all([
         subscriptionService.getCurrentSubscription(),
         subscriptionService.getActivePackages(),
       ]);
+
       setCurrentSubscription(subData);
       setUsage(subData.usage);
-      setPackages(pkgs);
+      // Handle both response formats: { packages: [...] } or direct array
+      setPackages(Array.isArray(pkgsData) ? pkgsData : pkgsData.packages || []);
     } catch (error: any) {
       toast.error("Failed to load subscription data");
       console.error("Error loading subscription:", error);
@@ -327,7 +329,7 @@ export default function SubscriptionPage() {
           </DialogHeader>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
-            {packages.map((pkg) => (
+            {packages?.map((pkg) => (
               <Card
                 key={pkg.id}
                 className={`cursor-pointer transition-all ${
