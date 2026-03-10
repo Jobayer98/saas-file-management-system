@@ -1,6 +1,7 @@
 import { AppError } from "@/middlewares/error/error.middleware";
 import path from "path";
-import fs from "fs";
+import fs from "fs/promises";
+import fsSync from "fs";
 import {
   InitChunkUploadInput,
   UploadUrlInput,
@@ -15,14 +16,19 @@ import {
 import { SubscriptionRepository } from "@/repositories/subscription/subscription.repository";
 import { FolderRepository } from "@/repositories/folder/folder.repository";
 import { FileRepository } from "@/repositories/file/file.repository";
-import { CloudinaryService } from "@/services/cloudinary/cloudinary.service";
 import { CacheService } from "@/services/cache/cache.service";
+
+const UPLOAD_DIR = path.join(process.cwd(), "uploads");
+const FILES_DIR = path.join(UPLOAD_DIR, "files");
+const CHUNKS_DIR = path.join(UPLOAD_DIR, "chunks");
 
 // In-memory store for upload sessions
 interface UploadSession {
   uploadId: string;
   userId: string;
   fileName: string;
+  fileSize: number;
+  mimeType: string;
   totalChunks: number;
   receivedChunks: number;
   folderId?: string;
@@ -36,8 +42,11 @@ setInterval(
   () => {
     const now = new Date();
     for (const [uploadId, session] of uploadSessions.entries()) {
-      const hourAgo = new Date(now.getTime() - 60 * 60 * 1000); // 1 hour ago
+      const hourAgo = new Date(now.getTime() - 60 * 60 * 1000);
       if (session.createdAt < hourAgo) {
+        // Clean up chunk directory
+        const chunkDir = path.join(CHUNKS_DIR, uploadId);
+        fsSync.rmSync(chunkDir, { recursive: true, force: true });
         uploadSessions.delete(uploadId);
       }
     }
@@ -46,16 +55,12 @@ setInterval(
 );
 
 export class FileService {
-  private cloudinaryService: CloudinaryService;
-
   constructor(
     private fileRepository: FileRepository,
     private subscriptionRepository: SubscriptionRepository,
     private folderRepository: FolderRepository,
     private cacheService: CacheService,
-  ) {
-    this.cloudinaryService = new CloudinaryService();
-  }
+  ) {}
 
   // Single File Upload
   async uploadFile(
@@ -63,12 +68,10 @@ export class FileService {
     file: Express.Multer.File,
     folderId?: string,
   ) {
-    // Validate file object
     if (!file || !file.path || !file.size) {
       throw new AppError("Invalid file upload", 400, "INVALID_FILE");
     }
 
-    // Check subscription limits
     const subscription =
       await this.subscriptionRepository.getCurrentSubscription(userId);
     if (!subscription) {
@@ -79,12 +82,10 @@ export class FileService {
       );
     }
 
-    // Check file size limit
     if (BigInt(file.size) > subscription.package.maxFileSize) {
       throw new AppError("File size exceeds limit", 403, "FILE_SIZE_EXCEEDED");
     }
 
-    // Check total storage limit
     const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const newTotalSize = Number(usage.totalSize) + file.size;
     if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
@@ -95,7 +96,6 @@ export class FileService {
       );
     }
 
-    // Check folder exists and files per folder limit
     if (folderId) {
       const folder = await this.folderRepository.getFolderById(
         folderId,
@@ -116,13 +116,11 @@ export class FileService {
       }
     }
 
-    // Check file type
     const allowedTypes = subscription.package.allowedFileTypes;
     if (!allowedTypes.includes("*") && !allowedTypes.includes(file.mimetype)) {
       throw new AppError("File type not allowed", 403, "FILE_TYPE_NOT_ALLOWED");
     }
 
-    // Detect MIME type from extension if octet-stream
     let mimeType = file.mimetype;
     if (mimeType === "application/octet-stream") {
       const ext = path.extname(file.originalname).toLowerCase();
@@ -139,25 +137,26 @@ export class FileService {
       mimeType = mimeMap[ext] || mimeType;
     }
 
-    // Upload to Cloudinary
-    const { url: cloudinaryUrl, publicId } =
-      await this.cloudinaryService.uploadFile(
-        file.path,
-        `users/${userId}/files`,
-      );
+    // Save to local storage
+    const fileName = `${Date.now()}_${file.originalname}`;
+    const userDir = path.join(FILES_DIR, userId);
+    await fs.mkdir(userDir, { recursive: true });
+    const filePath = path.join(userDir, fileName);
+    await fs.copyFile(file.path, filePath);
+    await fs.unlink(file.path);
 
-    // Create file record
+    const relativePath = `/uploads/files/${userId}/${fileName}`;
+
     const uploadedFile = await this.fileRepository.createFile({
       name: file.filename,
       originalName: file.originalname,
       mimeType,
       size: BigInt(file.size),
-      path: cloudinaryUrl,
+      path: relativePath,
       userId,
       folderId: folderId || null,
     });
 
-    // Invalidate cache
     await this.cacheService.del(`subscription:current:${userId}`);
     await this.cacheService.del(`dashboard:stats:${userId}`);
 
@@ -165,8 +164,7 @@ export class FileService {
       file: {
         ...uploadedFile,
         size: uploadedFile.size.toString(),
-        url: cloudinaryUrl,
-        publicId,
+        url: relativePath,
       },
     };
   }
@@ -205,8 +203,8 @@ export class FileService {
           error: error.message,
         });
         // Clean up temp file if exists
-        if (file.path && fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
+        if (file.path && fsSync.existsSync(file.path)) {
+          fsSync.unlinkSync(file.path);
         }
       }
     }
@@ -231,12 +229,10 @@ export class FileService {
       );
     }
 
-    // Check file size limit
     if (BigInt(data.fileSize) > subscription.package.maxFileSize) {
       throw new AppError("File size exceeds limit", 403, "FILE_SIZE_EXCEEDED");
     }
 
-    // Check storage limit
     const usage = await this.subscriptionRepository.getUserUsageStats(userId);
     const newTotalSize = Number(usage.totalSize) + data.fileSize;
     if (BigInt(newTotalSize) > subscription.package.totalFileLimit) {
@@ -247,14 +243,35 @@ export class FileService {
       );
     }
 
-    // Generate upload ID
     const uploadId = `upload_${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
 
-    // Store upload metadata in memory
+    // Create chunk directory
+    const chunkDir = path.join(CHUNKS_DIR, uploadId);
+    await fs.mkdir(chunkDir, { recursive: true });
+
+    // Detect MIME type
+    let mimeType = data.mimeType || "application/octet-stream";
+    if (mimeType === "application/octet-stream") {
+      const ext = path.extname(data.fileName).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        ".mp4": "video/mp4",
+        ".avi": "video/x-msvideo",
+        ".mov": "video/quicktime",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".pdf": "application/pdf",
+        ".zip": "application/zip",
+      };
+      mimeType = mimeMap[ext] || mimeType;
+    }
+
     uploadSessions.set(uploadId, {
       uploadId,
       userId,
       fileName: data.fileName,
+      fileSize: data.fileSize,
+      mimeType,
       totalChunks: data.totalChunks,
       receivedChunks: 0,
       folderId: data.folderId || undefined,
@@ -267,8 +284,8 @@ export class FileService {
   // Upload Chunk
   async uploadChunk(
     uploadId: string,
-    _chunkIndex: number,
-    _chunkFile: Express.Multer.File,
+    chunkIndex: number,
+    chunkFile: Express.Multer.File,
   ) {
     const session = uploadSessions.get(uploadId);
     if (!session) {
@@ -278,6 +295,12 @@ export class FileService {
         "UPLOAD_NOT_FOUND",
       );
     }
+
+    // Save chunk to disk
+    const chunkDir = path.join(CHUNKS_DIR, uploadId);
+    const chunkPath = path.join(chunkDir, `chunk_${chunkIndex}`);
+    await fs.copyFile(chunkFile.path, chunkPath);
+    await fs.unlink(chunkFile.path);
 
     session.receivedChunks += 1;
 
@@ -299,25 +322,52 @@ export class FileService {
       throw new AppError("Not all chunks received", 400, "INCOMPLETE_UPLOAD");
     }
 
-    // For simplicity, we'll create a placeholder file record
-    // In a real implementation, you'd merge the actual chunk files
+    // Merge chunks
+    const chunkDir = path.join(CHUNKS_DIR, uploadId);
+    const fileName = `${Date.now()}_${session.fileName}`;
+    const userDir = path.join(FILES_DIR, userId);
+    await fs.mkdir(userDir, { recursive: true });
+    const finalPath = path.join(userDir, fileName);
+
+    const writeStream = fsSync.createWriteStream(finalPath);
+
+    for (let i = 0; i < session.totalChunks; i++) {
+      const chunkPath = path.join(chunkDir, `chunk_${i}`);
+      const chunkBuffer = await fs.readFile(chunkPath);
+      writeStream.write(chunkBuffer);
+    }
+
+    writeStream.end();
+    await new Promise((resolve, reject) => {
+      writeStream.on("finish", resolve);
+      writeStream.on("error", reject);
+    });
+
+    // Clean up chunks
+    await fs.rm(chunkDir, { recursive: true, force: true });
+
+    const relativePath = `/uploads/files/${userId}/${fileName}`;
+
     const file = await this.fileRepository.createFile({
-      name: session.fileName,
+      name: fileName,
       originalName: session.fileName,
-      mimeType: "application/octet-stream", // Default mime type
-      size: BigInt(0), // Placeholder size
-      path: `/uploads/${session.fileName}`,
+      mimeType: session.mimeType,
+      size: BigInt(session.fileSize),
+      path: relativePath,
       userId,
       folderId: session.folderId || null,
     });
 
-    // Clean up session
     uploadSessions.delete(uploadId);
+
+    await this.cacheService.del(`subscription:current:${userId}`);
+    await this.cacheService.del(`dashboard:stats:${userId}`);
 
     return {
       file: {
         ...file,
         size: file.size.toString(),
+        url: relativePath,
       },
     };
   }
@@ -351,7 +401,10 @@ export class FileService {
       throw new AppError("Upload session not found", 404, "UPLOAD_NOT_FOUND");
     }
 
-    // Clean up session
+    // Clean up chunks
+    const chunkDir = path.join(CHUNKS_DIR, uploadId);
+    await fs.rm(chunkDir, { recursive: true, force: true });
+
     uploadSessions.delete(uploadId);
 
     return { message: "Upload cancelled successfully" };
@@ -411,7 +464,6 @@ export class FileService {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
-    // Return Cloudinary URL directly
     return { downloadUrl: file.path, fileName: file.originalName };
   }
 
@@ -440,24 +492,7 @@ export class FileService {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
-    // Generate thumbnail from Cloudinary URL
-    let thumbnailUrl = file.thumbnailPath;
-    if (!thumbnailUrl && file.mimeType.startsWith("image/")) {
-      thumbnailUrl = await this.cloudinaryService.getOptimizedUrl(
-        this.extractPublicId(file.path),
-        300,
-        300,
-      );
-    }
-
-    return { thumbnailUrl: thumbnailUrl || file.path };
-  }
-
-  // Helper to extract publicId from Cloudinary URL
-  private extractPublicId(url: string): string {
-    const parts = url.split("/");
-    const filename = parts[parts.length - 1];
-    return parts.slice(-3, -1).join("/") + "/" + filename.split(".")[0];
+    return { thumbnailUrl: file.thumbnailPath || file.path };
   }
 
   // Rename File
@@ -486,19 +521,14 @@ export class FileService {
       throw new AppError("File not found", 404, "FILE_NOT_FOUND");
     }
 
-    // Delete from Cloudinary if URL exists
-    if (file.path && file.path.includes("cloudinary")) {
-      try {
-        const publicId = this.extractPublicId(file.path);
-        await this.cloudinaryService.deleteFile(publicId);
-      } catch (error) {
-        console.error("Failed to delete from Cloudinary:", error);
-      }
+    // Delete from local storage
+    const filePath = path.join(process.cwd(), file.path);
+    if (fsSync.existsSync(filePath)) {
+      await fs.unlink(filePath);
     }
 
     await this.fileRepository.softDeleteFile(fileId);
 
-    // Invalidate cache
     await this.cacheService.del(`subscription:current:${userId}`);
     await this.cacheService.del(`dashboard:stats:${userId}`);
 
@@ -595,13 +625,21 @@ export class FileService {
       }
     }
 
-    // Create new file record with same Cloudinary URL
+    // Copy file on disk
+    const sourcePath = path.join(process.cwd(), file.path);
+    const fileName = `${Date.now()}_copy_${file.originalName}`;
+    const userDir = path.join(FILES_DIR, userId);
+    const destPath = path.join(userDir, fileName);
+    await fs.copyFile(sourcePath, destPath);
+
+    const relativePath = `/uploads/files/${userId}/${fileName}`;
+
     const copiedFile = await this.fileRepository.createFile({
-      name: `copy_${file.name}`,
+      name: fileName,
       originalName: `Copy of ${file.originalName}`,
       mimeType: file.mimeType,
       size: file.size,
-      path: file.path,
+      path: relativePath,
       userId,
       folderId: data.targetFolderId || null,
     });

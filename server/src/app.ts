@@ -43,6 +43,9 @@ app.get('/api-docs.json', (_req, res) => {
     res.send(swaggerSpec);
 });
 
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
+
 // API Routes
 app.use(process.env.API_PREFIX || '/api', routes);
 

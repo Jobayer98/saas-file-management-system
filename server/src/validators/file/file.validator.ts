@@ -5,14 +5,14 @@ export const initChunkUploadSchema = z.object({
   fileName: z.string().min(1, 'File name is required'),
   fileSize: z.number().positive('File size must be positive'),
   folderId: z.uuid('Invalid folder ID').optional().nullable(),
-  fileType: z.string().min(1, 'File type is required'),
+  mimeType: z.string().optional(),
   totalChunks: z.number().int().positive('Total chunks must be positive'),
 });
 
 export const uploadUrlSchema = z.object({
   fileName: z.string().min(1, 'File name is required'),
   folderId: z.uuid('Invalid folder ID').optional().nullable(),
-  fileType: z.string().min(1, 'File type is required'),
+  mimeType: z.string().optional(),
 });
 
 export const cancelUploadSchema = z.object({

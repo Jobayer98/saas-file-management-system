@@ -167,14 +167,20 @@ export class Container {
 
   get authService(): AuthService {
     if (!this._authService) {
-      this._authService = new AuthService(this.authRepository, this.emailQueueService);
+      this._authService = new AuthService(
+        this.authRepository,
+        this.emailQueueService,
+      );
     }
     return this._authService;
   }
 
   get packageService(): PackageService {
     if (!this._packageService) {
-      this._packageService = new PackageService(this.packageRepository);
+      this._packageService = new PackageService(
+        this.packageRepository,
+        this.cacheService,
+      );
     }
     return this._packageService;
   }
@@ -188,7 +194,10 @@ export class Container {
 
   get statsService(): StatsService {
     if (!this._statsService) {
-      this._statsService = new StatsService(this.statsRepository, this.cacheService);
+      this._statsService = new StatsService(
+        this.statsRepository,
+        this.cacheService,
+      );
     }
     return this._statsService;
   }
@@ -228,7 +237,10 @@ export class Container {
 
   get dashboardService(): DashboardService {
     if (!this._dashboardService) {
-      this._dashboardService = new DashboardService(this.dashboardRepository, this.cacheService);
+      this._dashboardService = new DashboardService(
+        this.dashboardRepository,
+        this.cacheService,
+      );
     }
     return this._dashboardService;
   }
@@ -244,7 +256,7 @@ export class Container {
     if (!this._trashService) {
       this._trashService = new TrashService(
         this.fileRepository,
-        this.folderRepository
+        this.folderRepository,
       );
     }
     return this._trashService;
