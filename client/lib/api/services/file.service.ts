@@ -17,15 +17,38 @@ export const fileService = {
     return response.data.data.file;
   },
 
-  async uploadFile(file: File, folderId?: string): Promise<FileItem> {
-    const formData = new FormData();
-    formData.append('file', file);
-    if (folderId) formData.append('folderId', folderId);
+  async uploadFile(file: File, folderId?: string, maxRetries = 3): Promise<FileItem> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (folderId) formData.append('folderId', folderId);
 
-    const response = await apiClient.post('/files/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data.data;
+        const response = await apiClient.post('/files/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000, // 2 minutes
+        });
+        return response.data.data;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry on client errors (4xx)
+        if (error.response && error.response.status >= 400 && error.response.status < 500) {
+          throw error;
+        }
+        
+        // Retry on network errors or server errors
+        if (attempt < maxRetries - 1) {
+          const delay = Math.pow(2, attempt) * 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          console.log(`Retrying upload, attempt ${attempt + 2}/${maxRetries}`);
+        }
+      }
+    }
+    
+    throw lastError;
   },
 
   async uploadMultipleFiles(files: File[], folderId?: string): Promise<{ files: FileItem[]; failed: any[] }> {
@@ -50,16 +73,44 @@ export const fileService = {
     return response.data.data.uploadId;
   },
 
-  async uploadChunk(uploadId: string, chunk: Blob, chunkIndex: number): Promise<{ received: number; total: number }> {
-    const formData = new FormData();
-    formData.append('chunk', chunk);
-    formData.append('uploadId', uploadId);
-    formData.append('chunkIndex', chunkIndex.toString());
+  async uploadChunk(
+    uploadId: string,
+    chunk: Blob,
+    chunkIndex: number,
+    maxRetries = 3
+  ): Promise<{ received: number; total: number }> {
+    let lastError: any;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        const formData = new FormData();
+        formData.append('chunk', chunk);
+        formData.append('uploadId', uploadId);
+        formData.append('chunkIndex', chunkIndex.toString());
 
-    const response = await apiClient.post('/files/upload/chunk', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return response.data.data;
+        const response = await apiClient.post('/files/upload/chunk', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 60000, // 60 seconds for chunk upload
+        });
+        return response.data.data;
+      } catch (error: any) {
+        lastError = error;
+        
+        // Don't retry on client errors (4xx)
+        if (error.response && error.response.status >= 400 && error.response.status < 500) {
+          throw error;
+        }
+        
+        // Retry on network errors or server errors
+        if (attempt < maxRetries - 1) {
+          const delay = Math.pow(2, attempt) * 1000; // 1s, 2s, 4s
+          await new Promise(resolve => setTimeout(resolve, delay));
+          console.log(`Retrying chunk ${chunkIndex}, attempt ${attempt + 2}/${maxRetries}`);
+        }
+      }
+    }
+    
+    throw lastError;
   },
 
   async completeChunkedUpload(uploadId: string): Promise<FileItem> {
