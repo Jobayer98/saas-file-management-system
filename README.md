@@ -2,6 +2,11 @@
 
 A comprehensive cloud-based file management platform built with modern web technologies, offering secure file storage, sharing, and collaboration features with subscription-based access control.
 
+## 🌐 Live Demo
+
+- **Frontend**: [https://saas-file-management-system-lg83.onrender.com](https://saas-file-management-system-lg83.onrender.com)
+- **API Documentation**: [https://saas-file-management-system-server-q48e.onrender.com/api-docs](https://saas-file-management-system-server-q48e.onrender.com/api-docs)
+
 ## 🚀 Features
 
 ### Core Features
@@ -32,8 +37,6 @@ A comprehensive cloud-based file management platform built with modern web techn
 
 - **JWT Authentication**: Secure token-based authentication with refresh tokens
 - **Rate Limiting**: API protection with configurable rate limits
-- **File Encryption**: Secure file storage with encryption at rest
-- **CDN Integration**: Fast file delivery through content delivery network
 - **Chunked Uploads**: Efficient handling of large files with resume capability
 
 ## 🏗️ Architecture
@@ -48,10 +51,10 @@ A comprehensive cloud-based file management platform built with modern web techn
                             │
                    ┌────────┼────────┐
                    ▼        ▼        ▼
-            ┌──────────┐ ┌──────┐ ┌──────────┐
-            │  Redis   │ │ S3/R2│ │  Email   │
-            │  Cache   │ │Storage││ Service  │
-            └──────────┘ └──────┘ └──────────┘
+            ┌──────────┐ ┌───────────┐ ┌──────────┐
+            │  Redis   │ │Cloudinary │ │  Email   │
+            │  Cache   │ │  Storage  │ │ Service  │
+            └──────────┘ └───────────┘ └──────────┘
 ```
 
 ### Tech Stack
@@ -81,7 +84,7 @@ A comprehensive cloud-based file management platform built with modern web techn
 
 - **Primary Database**: PostgreSQL
 - **Cache**: Redis
-- **File Storage**: AWS S3 / Cloudflare R2
+- **File Storage**: Cloudinary
 - **Email**: Nodemailer
 
 #### DevOps & Tools
@@ -98,7 +101,7 @@ A comprehensive cloud-based file management platform built with modern web techn
 - Node.js 20 or higher
 - PostgreSQL 14 or higher
 - Redis 6 or higher
-- AWS S3 or Cloudflare R2 account
+- Cloudinary account
 
 ### Backend Setup
 
@@ -135,11 +138,11 @@ A comprehensive cloud-based file management platform built with modern web techn
    JWT_SECRET="your-super-secret-jwt-key"
    JWT_REFRESH_SECRET="your-refresh-secret-key"
 
-   # AWS S3 / Cloudflare R2
-   AWS_ACCESS_KEY_ID="your-access-key"
-   AWS_SECRET_ACCESS_KEY="your-secret-key"
-   AWS_REGION="us-east-1"
-   AWS_BUCKET_NAME="your-bucket-name"
+   # Cloudinary Configuration
+   CLOUDINARY_CLOUD_NAME=your-cloudinary-name
+   CLOUDINARY_API_KEY=your-cloudinary-api-key
+   CLOUDINARY_API_SECRET=your-cloudinary-secret-key
+
 
    # Email
    SMTP_HOST="smtp.gmail.com"
@@ -189,9 +192,14 @@ A comprehensive cloud-based file management platform built with modern web techn
 
 ### Access the Application
 
+#### Local Development
 - **Frontend**: http://localhost:3000
 - **Backend API**: http://localhost:3001
 - **API Documentation**: http://localhost:3001/api-docs
+
+#### Live Production
+- **Frontend**: https://saas-file-management-system-lg83.onrender.com
+- **API Documentation**: https://saas-file-management-system-server-q48e.onrender.com/api-docs
 
 ### Default Admin Account
 
@@ -243,6 +251,7 @@ Each sample user comes with:
    ```
 
 3. **Run development migrations**
+
    ```bash
    cd server
    npm run db:migrate
@@ -261,7 +270,7 @@ Ensure all production environment variables are configured:
 
 - Database connection strings
 - Redis connection
-- S3/R2 credentials
+- Cloudinary credentials
 - SMTP configuration
 - JWT secrets (use strong, unique keys)
 
@@ -287,12 +296,7 @@ Ensure all production environment variables are configured:
 - **Automated Backups**: Scheduled backup and restore functionality
 - **Content Preview**: Enhanced preview for more file types
 
-### Roadmap
 
-- **Q2 2026**: Real-time collaboration features
-- **Q3 2026**: Mobile applications
-- **Q4 2026**: Advanced analytics and reporting
-- **Q1 2027**: Team workspaces and collaboration tools
 
 ## ⚠️ Limitations
 
@@ -308,7 +312,7 @@ Ensure all production environment variables are configured:
 ### Technical Constraints
 
 - **Database**: PostgreSQL-specific features used (not easily portable)
-- **Storage**: Requires S3-compatible storage service
+- **Storage**: Requires Cloudinary account for file storage
 - **Email**: SMTP configuration required for notifications
 - **Cache**: Redis dependency for optimal performance
 - **Browser Support**: Modern browsers only (ES2020+ features)
@@ -330,6 +334,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Commit your changes (`git commit -m 'Add amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 📞 Support
+
+For support and questions:
+
+- Create an issue in the GitHub repository
+- Check the [documentation](docs/)
+- Review the [API documentation](http://localhost:3001/api-docs) when running locally
+
+## 🙏 Acknowledgments
+
+- [Next.js](https://nextjs.org/) for the amazing React framework
+- [shadcn/ui](https://ui.shadcn.com/) for beautiful UI components
+- [Prisma](https://prisma.io/) for the excellent database toolkit
+- [Tailwind CSS](https://tailwindcss.com/) for utility-first styling. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
 ## 📞 Support
