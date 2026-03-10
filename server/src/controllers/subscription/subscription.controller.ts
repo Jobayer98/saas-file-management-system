@@ -9,7 +9,7 @@ export class SubscriptionController {
 
   getActivePackages = asyncHandler(async (_req: AuthRequest, res: Response) => {
     const result = await this.subscriptionService.getActivePackages();
-    ResponseUtil.success(res, result.packages, 'Active packages retrieved successfully');
+    ResponseUtil.success(res, result, 'Active packages retrieved successfully');
   });
 
   getCurrentSubscription = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -19,12 +19,12 @@ export class SubscriptionController {
 
   selectPackage = asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.subscriptionService.selectPackage(req.user!.id, req.body.packageId);
-    ResponseUtil.success(res, result.subscription, 'Package selected successfully', 201);
+    ResponseUtil.success(res, result, 'Package selected successfully', 201);
   });
 
   changePackage = asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.subscriptionService.changePackage(req.user!.id, req.body.newPackageId);
-    ResponseUtil.success(res, result.subscription, result.message);
+    ResponseUtil.success(res, result, result.message);
   });
 
   getSubscriptionHistory = asyncHandler(async (req: AuthRequest, res: Response) => {
@@ -47,11 +47,11 @@ export class SubscriptionController {
 
   cancelSubscription = asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.subscriptionService.cancelSubscription(req.user!.id);
-    ResponseUtil.success(res, { endDate: result.endDate }, result.message);
+    ResponseUtil.success(res, result, result.message);
   });
 
   renewSubscription = asyncHandler(async (req: AuthRequest, res: Response) => {
     const result = await this.subscriptionService.renewSubscription(req.user!.id);
-    ResponseUtil.success(res, result.subscription, 'Subscription renewed successfully');
+    ResponseUtil.success(res, result, 'Subscription renewed successfully');
   });
 }

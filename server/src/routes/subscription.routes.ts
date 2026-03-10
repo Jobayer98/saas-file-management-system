@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getContainer } from '@/container';
 import { authenticate } from '@/middlewares/auth/auth.middleware';
 import { validate } from '@/middlewares/validation/validate.middleware';
+import { cacheMiddleware } from '@/middlewares/cache/cache.middleware';
 import {
   selectPackageSchema,
   changePackageSchema,
@@ -16,8 +17,8 @@ router.use(authenticate);
 const getController = () => getContainer().subscriptionController;
 
 // Subscription Routes
-router.get('/packages', (req, res, next) => getController().getActivePackages(req, res, next));
-router.get('/current', (req, res, next) => getController().getCurrentSubscription(req, res, next));
+router.get('/packages', cacheMiddleware(1800), (req, res, next) => getController().getActivePackages(req, res, next));
+router.get('/current', cacheMiddleware(300), (req, res, next) => getController().getCurrentSubscription(req, res, next));
 router.post('/select', validate(selectPackageSchema), (req, res, next) => getController().selectPackage(req, res, next));
 router.put('/change', validate(changePackageSchema), (req, res, next) => getController().changePackage(req, res, next));
 router.get('/history', (req, res, next) => getController().getSubscriptionHistory(req, res, next));

@@ -9,6 +9,7 @@ Backend API server built with Express.js and TypeScript, providing secure file m
 - **File Management**: Upload, download, and organize files with Cloudinary integration
 - **Subscription System**: Package-based access control with usage tracking
 - **Admin Panel**: User and package management with analytics
+- **Redis Caching**: High-performance caching for frequently accessed data
 - **Rate Limiting**: Redis-based rate limiting for API protection
 - **Database ORM**: Prisma for type-safe database operations
 - **Background Jobs**: Scheduled tasks for cleanup and maintenance
@@ -90,6 +91,20 @@ Backend API server built with Express.js and TypeScript, providing secure file m
    ```bash
    npm run dev
    ```
+
+## 🔧 Available Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build for production
+- `npm start` - Start production server
+- `npm test` - Run unit tests
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run db:generate` - Generate Prisma client
+- `npm run db:migrate` - Run database migrations
+- `npm run db:migrate:prod` - Run production migrations
+- `npm run db:seed` - Seed database with sample data
+- `npm run db:studio` - Open Prisma Studio
+- `npm run load-test` - Run load tests with k6
 
 ## 🔧 Available Scripts
 

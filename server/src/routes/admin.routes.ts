@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getContainer } from '@/container';
 import { authenticate, requireAdmin } from '@/middlewares/auth/auth.middleware';
 import { validate } from '@/middlewares/validation/validate.middleware';
+import { cacheMiddleware } from '@/middlewares/cache/cache.middleware';
 import { createPackageSchema, updatePackageSchema } from '@/validators/admin/package.validator';
 import { updateUserRoleSchema, suspendUserSchema } from '@/validators/admin/user.validator';
 
@@ -32,8 +33,8 @@ router.post('/users/:id/suspend', validate(suspendUserSchema), (req, res, next) 
 router.post('/users/:id/activate', (req, res, next) => getUserController().activateUser(req, res, next));
 
 // Stats Routes
-router.get('/stats/overview', (req, res, next) => getStatsController().getOverviewStats(req, res, next));
-router.get('/stats/revenue', (req, res, next) => getStatsController().getRevenueStats(req, res, next));
-router.get('/stats/usage', (req, res, next) => getStatsController().getUsageStats(req, res, next));
+router.get('/stats/overview', cacheMiddleware(600), (req, res, next) => getStatsController().getOverviewStats(req, res, next));
+router.get('/stats/revenue', cacheMiddleware(1800), (req, res, next) => getStatsController().getRevenueStats(req, res, next));
+router.get('/stats/usage', cacheMiddleware(600), (req, res, next) => getStatsController().getUsageStats(req, res, next));
 
 export default router;

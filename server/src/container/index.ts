@@ -20,6 +20,7 @@ import { FileService } from "@/services/file/file.service";
 import { DashboardService } from "@/services/dashboard/dashboard.service";
 import { ProfileService } from "@/services/profile/profile.service";
 import { TrashService } from "@/services/trash/trash.service";
+import { CacheService } from "@/services/cache/cache.service";
 
 // Controllers
 import { AuthController } from "@/controllers/auth/auth.controller";
@@ -60,6 +61,7 @@ export class Container {
   private _dashboardService?: DashboardService;
   private _profileService?: ProfileService;
   private _trashService?: TrashService;
+  private _cacheService?: CacheService;
 
   // Controllers
   private _authController?: AuthController;
@@ -147,6 +149,13 @@ export class Container {
   }
 
   // Service getters
+  get cacheService(): CacheService {
+    if (!this._cacheService) {
+      this._cacheService = new CacheService();
+    }
+    return this._cacheService;
+  }
+
   get authService(): AuthService {
     if (!this._authService) {
       this._authService = new AuthService(this.authRepository);
@@ -170,7 +179,7 @@ export class Container {
 
   get statsService(): StatsService {
     if (!this._statsService) {
-      this._statsService = new StatsService(this.statsRepository);
+      this._statsService = new StatsService(this.statsRepository, this.cacheService);
     }
     return this._statsService;
   }
@@ -179,6 +188,7 @@ export class Container {
     if (!this._subscriptionService) {
       this._subscriptionService = new SubscriptionService(
         this.subscriptionRepository,
+        this.cacheService,
       );
     }
     return this._subscriptionService;
@@ -201,6 +211,7 @@ export class Container {
         this.fileRepository,
         this.subscriptionRepository,
         this.folderRepository,
+        this.cacheService,
       );
     }
     return this._fileService;
@@ -208,7 +219,7 @@ export class Container {
 
   get dashboardService(): DashboardService {
     if (!this._dashboardService) {
-      this._dashboardService = new DashboardService(this.dashboardRepository);
+      this._dashboardService = new DashboardService(this.dashboardRepository, this.cacheService);
     }
     return this._dashboardService;
   }

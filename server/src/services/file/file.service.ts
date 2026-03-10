@@ -16,6 +16,8 @@ import { SubscriptionRepository } from "@/repositories/subscription/subscription
 import { FolderRepository } from "@/repositories/folder/folder.repository";
 import { FileRepository } from "@/repositories/file/file.repository";
 import { CloudinaryService } from "@/services/cloudinary/cloudinary.service";
+import { CacheService } from "@/services/cache/cache.service";
+import logger from "@/lib/logger";
 
 // In-memory store for upload sessions
 interface UploadSession {
@@ -51,6 +53,7 @@ export class FileService {
     private fileRepository: FileRepository,
     private subscriptionRepository: SubscriptionRepository,
     private folderRepository: FolderRepository,
+    private cacheService: CacheService,
   ) {
     this.cloudinaryService = new CloudinaryService();
   }
@@ -122,7 +125,6 @@ export class FileService {
 
     // Detect MIME type from extension if octet-stream
     let mimeType = file.mimetype;
-    console.log(mimeType);
     if (mimeType === "application/octet-stream") {
       const ext = path.extname(file.originalname).toLowerCase();
       const mimeMap: Record<string, string> = {
@@ -155,6 +157,10 @@ export class FileService {
       userId,
       folderId: folderId || null,
     });
+
+    // Invalidate cache
+    await this.cacheService.del(`subscription:current:${userId}`);
+    await this.cacheService.del(`dashboard:stats:${userId}`);
 
     return {
       file: {
@@ -493,6 +499,10 @@ export class FileService {
 
     await this.fileRepository.softDeleteFile(fileId);
 
+    // Invalidate cache
+    await this.cacheService.del(`subscription:current:${userId}`);
+    await this.cacheService.del(`dashboard:stats:${userId}`);
+
     return { message: "File moved to trash" };
   }
 
@@ -652,6 +662,10 @@ export class FileService {
     }
 
     const deletedCount = await this.fileRepository.bulkSoftDelete(data.fileIds);
+
+    // Invalidate cache
+    await this.cacheService.del(`subscription:current:${userId}`);
+    await this.cacheService.del(`dashboard:stats:${userId}`);
 
     return {
       message: "Files moved to trash",

@@ -1,24 +1,44 @@
 import { SubscriptionRepository } from '@/repositories/subscription/subscription.repository';
+import { CacheService } from '@/services/cache/cache.service';
 import { AppError } from '@/middlewares/error/error.middleware';
 
 export class SubscriptionService {
   constructor(
     private subscriptionRepository: SubscriptionRepository,
+    private cacheService: CacheService,
   ) { }
 
   async getActivePackages() {
+    const cacheKey = 'packages:active';
+    
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const packages = await this.subscriptionRepository.getActivePackages();
     
-    return {
+    const result = {
       packages: packages.map((pkg: any) => ({
         ...pkg,
         maxFileSize: pkg.maxFileSize.toString(),
         totalFileLimit: pkg.totalFileLimit.toString(),
       })),
     };
+
+    await this.cacheService.set(cacheKey, result, 1800); // 30 minutes
+
+    return result;
   }
 
   async getCurrentSubscription(userId: string) {
+    const cacheKey = `subscription:current:${userId}`;
+    
+    const cached = await this.cacheService.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const subscription = await this.subscriptionRepository.getCurrentSubscription(userId);
     
     if (!subscription) {
@@ -39,7 +59,7 @@ export class SubscriptionService {
     const limitNum = Number(subscription.package.totalFileLimit);
     const percentUsed = limitNum > 0 ? (totalSizeNum / limitNum) * 100 : 0;
 
-    return {
+    const result = {
       subscription: {
         id: subscription.id,
         packageId: subscription.packageId,
@@ -59,6 +79,10 @@ export class SubscriptionService {
         percentUsed: Math.round(percentUsed * 100) / 100,
       },
     };
+
+    await this.cacheService.set(cacheKey, result, 300); // 5 minutes
+
+    return result;
   }
 
   async selectPackage(userId: string, packageId: number) {
@@ -83,6 +107,9 @@ export class SubscriptionService {
     }
 
     const subscription = await this.subscriptionRepository.createSubscription(userId, packageId);
+    
+    // Invalidate cache
+    await this.cacheService.del(`subscription:current:${userId}`);
     
     return {
       subscription: {
@@ -120,6 +147,9 @@ export class SubscriptionService {
     }
 
     const subscription = await this.subscriptionRepository.updateSubscription(userId, newPackageId);
+    
+    // Invalidate cache
+    await this.cacheService.del(`subscription:current:${userId}`);
     
     return {
       subscription: {
@@ -214,6 +244,9 @@ export class SubscriptionService {
 
     const updated = await this.subscriptionRepository.cancelSubscription(userId);
     
+    // Invalidate cache
+    await this.cacheService.del(`subscription:current:${userId}`);
+    
     return {
       message: 'Subscription cancelled successfully',
       endDate: updated.endDate,
@@ -232,6 +265,9 @@ export class SubscriptionService {
     }
 
     const updated = await this.subscriptionRepository.renewSubscription(userId);
+    
+    // Invalidate cache
+    await this.cacheService.del(`subscription:current:${userId}`);
     
     return {
       subscription: {
