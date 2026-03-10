@@ -124,8 +124,10 @@ export class AuthRepository {
   }
 
   async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<RefreshToken> {
-    return await this.prisma.refreshToken.create({
-      data: {
+    return await this.prisma.refreshToken.upsert({
+      where: { token },
+      update: { expiresAt },
+      create: {
         userId,
         token,
         expiresAt,

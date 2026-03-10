@@ -1,6 +1,11 @@
 import rateLimit from 'express-rate-limit';
+import { Request, Response, NextFunction } from 'express';
 
-export const generalRateLimit = rateLimit({
+const DISABLE_RATE_LIMIT = process.env.DISABLE_RATE_LIMIT === 'true';
+
+const noopMiddleware = (req: Request, res: Response, next: NextFunction) => next();
+
+export const generalRateLimit = DISABLE_RATE_LIMIT ? noopMiddleware : rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   message: { success: false, error: { code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests, please try again later.' } },
@@ -8,7 +13,7 @@ export const generalRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-export const uploadRateLimit = rateLimit({
+export const uploadRateLimit = DISABLE_RATE_LIMIT ? noopMiddleware : rateLimit({
   windowMs: 60 * 1000,
   max: 10,
   message: { success: false, error: { code: 'UPLOAD_RATE_LIMIT_EXCEEDED', message: 'Too many upload requests.' } },
@@ -16,7 +21,7 @@ export const uploadRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-export const creationRateLimit = rateLimit({
+export const creationRateLimit = DISABLE_RATE_LIMIT ? noopMiddleware : rateLimit({
   windowMs: 60 * 1000,
   max: 30,
   message: { success: false, error: { code: 'CREATION_RATE_LIMIT_EXCEEDED', message: 'Too many creation requests.' } },
@@ -24,7 +29,7 @@ export const creationRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-export const bulkOperationRateLimit = rateLimit({
+export const bulkOperationRateLimit = DISABLE_RATE_LIMIT ? noopMiddleware : rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 5,
   message: { success: false, error: { code: 'BULK_OPERATION_RATE_LIMIT_EXCEEDED', message: 'Too many bulk operations.' } },
@@ -33,7 +38,7 @@ export const bulkOperationRateLimit = rateLimit({
 });
 
 export const createUserRateLimit = (windowMs: number, max: number, keyGenerator?: (req: any) => string) =>
-  rateLimit({
+  DISABLE_RATE_LIMIT ? noopMiddleware : rateLimit({
     windowMs,
     max,
     keyGenerator: keyGenerator || ((req: any) => `user:${req.user?.id || 'anonymous'}`),
