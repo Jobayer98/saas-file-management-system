@@ -3,7 +3,6 @@ import { FileService } from "@/services/file/file.service";
 import { AuthRequest } from "@/types";
 import { asyncHandler } from "@/utils/asyncHandler";
 import { ResponseUtil } from "@/utils/response";
-// import fs from "fs";
 
 export class FileController {
   constructor(private fileService: FileService) {}
@@ -229,56 +228,4 @@ export class FileController {
     );
     ResponseUtil.success(res, { count: result.count }, result.message);
   });
-
-  // File Versions
-  getFileVersions = asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.fileService.getFileVersions(
-      req.user!.id,
-      req.params.id as string,
-    );
-    ResponseUtil.success(res, result.versions, "File versions retrieved");
-  });
-
-  createFileVersion = asyncHandler(async (req: AuthRequest, res: Response) => {
-    if (!req.file) {
-      throw new Error("No file uploaded");
-    }
-    const result = await this.fileService.createFileVersion(
-      req.user!.id,
-      req.params.id as string,
-      req.file,
-    );
-    ResponseUtil.success(res, result.version, "File version created", 201);
-  });
-
-  restoreFileVersion = asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.fileService.restoreFileVersion(
-      req.user!.id,
-      req.params.id as string,
-      req.params.versionId as string,
-    );
-    ResponseUtil.success(res, result.file, "File version restored");
-  });
-
-  deleteFileVersion = asyncHandler(async (req: AuthRequest, res: Response) => {
-    const result = await this.fileService.deleteFileVersion(
-      req.user!.id,
-      req.params.id as string,
-      req.params.versionId as string,
-    );
-    ResponseUtil.success(res, null, result.message);
-  });
-
-  downloadFileVersion = asyncHandler(
-    async (req: AuthRequest, res: Response) => {
-      const result = await this.fileService.getVersionDownloadUrl(
-        req.user!.id,
-        req.params.id as string,
-        req.params.versionId as string,
-      );
-
-      // Return download URL
-      ResponseUtil.success(res, result, "Version download URL retrieved");
-    },
-  );
 }

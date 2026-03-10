@@ -139,10 +139,11 @@ export class FileService {
     }
 
     // Upload to Cloudinary
-    const { url: cloudinaryUrl, publicId } = await this.cloudinaryService.uploadFile(
-      file.path,
-      `users/${userId}/files`,
-    );
+    const { url: cloudinaryUrl, publicId } =
+      await this.cloudinaryService.uploadFile(
+        file.path,
+        `users/${userId}/files`,
+      );
 
     // Create file record
     const uploadedFile = await this.fileRepository.createFile({
@@ -449,9 +450,9 @@ export class FileService {
 
   // Helper to extract publicId from Cloudinary URL
   private extractPublicId(url: string): string {
-    const parts = url.split('/');
+    const parts = url.split("/");
     const filename = parts[parts.length - 1];
-    return parts.slice(-3, -1).join('/') + '/' + filename.split('.')[0];
+    return parts.slice(-3, -1).join("/") + "/" + filename.split(".")[0];
   }
 
   // Rename File
@@ -481,12 +482,12 @@ export class FileService {
     }
 
     // Delete from Cloudinary if URL exists
-    if (file.path && file.path.includes('cloudinary')) {
+    if (file.path && file.path.includes("cloudinary")) {
       try {
         const publicId = this.extractPublicId(file.path);
         await this.cloudinaryService.deleteFile(publicId);
       } catch (error) {
-        console.error('Failed to delete from Cloudinary:', error);
+        console.error("Failed to delete from Cloudinary:", error);
       }
     }
 
@@ -708,119 +709,5 @@ export class FileService {
       message: "Files marked as favorite",
       count,
     };
-  }
-
-  // File Versions
-  async getFileVersions(userId: string, fileId: string) {
-    const file = await this.fileRepository.getFileById(fileId, userId);
-    if (!file) {
-      throw new AppError("File not found", 404, "FILE_NOT_FOUND");
-    }
-
-    const versions = await this.fileRepository.getFileVersions(fileId);
-
-    return {
-      versions: versions.map((v) => ({
-        ...v,
-        size: v.size.toString(),
-      })),
-    };
-  }
-
-  async createFileVersion(
-    userId: string,
-    fileId: string,
-    newFile: Express.Multer.File,
-  ) {
-    const file = await this.fileRepository.getFileById(fileId, userId);
-    if (!file) {
-      throw new AppError("File not found", 404, "FILE_NOT_FOUND");
-    }
-
-    const latestVersion =
-      await this.fileRepository.getLatestVersionNumber(fileId);
-    const newVersion = latestVersion + 1;
-
-    const version = await this.fileRepository.createFileVersion({
-      fileId,
-      version: newVersion,
-      path: newFile.path,
-      size: BigInt(newFile.size),
-    });
-
-    return {
-      version: {
-        ...version,
-        size: version.size.toString(),
-      },
-    };
-  }
-
-  async restoreFileVersion(userId: string, fileId: string, versionId: string) {
-    const file = await this.fileRepository.getFileById(fileId, userId);
-    if (!file) {
-      throw new AppError("File not found", 404, "FILE_NOT_FOUND");
-    }
-
-    const version = await this.fileRepository.getFileVersionById(versionId);
-    if (!version || version.fileId !== fileId) {
-      throw new AppError("Version not found", 404, "VERSION_NOT_FOUND");
-    }
-
-    // Copy version file to current file
-    fs.copyFileSync(version.path, file.path);
-
-    await this.fileRepository.updateFile(fileId, {
-      size: version.size,
-      updatedAt: new Date(),
-    });
-
-    return {
-      file: {
-        ...file,
-        size: version.size.toString(),
-      },
-    };
-  }
-
-  async deleteFileVersion(userId: string, fileId: string, versionId: string) {
-    const file = await this.fileRepository.getFileById(fileId, userId);
-    if (!file) {
-      throw new AppError("File not found", 404, "FILE_NOT_FOUND");
-    }
-
-    const version = await this.fileRepository.getFileVersionById(versionId);
-    if (!version || version.fileId !== fileId) {
-      throw new AppError("Version not found", 404, "VERSION_NOT_FOUND");
-    }
-
-    // Delete file from disk
-    if (fs.existsSync(version.path)) {
-      fs.unlinkSync(version.path);
-    }
-
-    await this.fileRepository.deleteFileVersion(versionId);
-
-    return { message: "Version deleted successfully" };
-  }
-
-  async getVersionDownloadUrl(
-    userId: string,
-    fileId: string,
-    versionId: string,
-  ) {
-    const file = await this.fileRepository.getFileById(fileId, userId);
-    if (!file) {
-      throw new AppError("File not found", 404, "FILE_NOT_FOUND");
-    }
-
-    const version = await this.fileRepository.getFileVersionById(versionId);
-    if (!version || version.fileId !== fileId) {
-      throw new AppError("Version not found", 404, "VERSION_NOT_FOUND");
-    }
-
-    const downloadUrl = `/files/versions/${versionId}/download`;
-
-    return { downloadUrl, file: version.path };
   }
 }
